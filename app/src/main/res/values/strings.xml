@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kingshot Macro</string>
+    <string name="accessibility_description">Automates clan invitation tapping in Kingshot game</string>
+    <string name="btn_start">Start</string>
+    <string name="btn_pause">Pause</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_settings">Settings</string>
+</resources>

@@ -1,0 +1,7 @@
+// Top-level build file – no Android Gradle Plugin (offline build uses build.sh)
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
