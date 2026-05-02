@@ -40,20 +40,24 @@ class MainActivity : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
         try {
+            super.onCreate(savedInstanceState)
             setContentView(buildRootLayout())
             MacroController.setActiveMacroId(this, MacroController.getActiveMacroId(this))
         } catch (e: Throwable) {
-            // Mostrar el error en pantalla para diagnóstico
+            try { super.onCreate(savedInstanceState) } catch (_: Throwable) {}
+            val msg = "${e.javaClass.name}: ${e.message}\n\n${e.cause?.toString() ?: ""}\n\n${
+                e.stackTrace.take(12).joinToString("\n") { "  at $it" }
+            }"
             val tv = android.widget.TextView(this).apply {
-                text = "ERROR DE INICIO:\n\n${e.javaClass.simpleName}: ${e.message}\n\n${e.stackTraceToString().take(800)}"
+                text = "CRASH:\n\n$msg"
                 setTextColor(android.graphics.Color.RED)
-                textSize = 11f
-                setPadding(20, 20, 20, 20)
+                textSize = 10f
+                setPadding(16, 16, 16, 16)
                 setBackgroundColor(android.graphics.Color.BLACK)
             }
             val sv = android.widget.ScrollView(this)
+            sv.setBackgroundColor(android.graphics.Color.BLACK)
             sv.addView(tv)
             setContentView(sv)
         }
