@@ -41,8 +41,22 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(buildRootLayout())
-        MacroController.setActiveMacroId(this, MacroController.getActiveMacroId(this))
+        try {
+            setContentView(buildRootLayout())
+            MacroController.setActiveMacroId(this, MacroController.getActiveMacroId(this))
+        } catch (e: Throwable) {
+            // Mostrar el error en pantalla para diagnóstico
+            val tv = android.widget.TextView(this).apply {
+                text = "ERROR DE INICIO:\n\n${e.javaClass.simpleName}: ${e.message}\n\n${e.stackTraceToString().take(800)}"
+                setTextColor(android.graphics.Color.RED)
+                textSize = 11f
+                setPadding(20, 20, 20, 20)
+                setBackgroundColor(android.graphics.Color.BLACK)
+            }
+            val sv = android.widget.ScrollView(this)
+            sv.addView(tv)
+            setContentView(sv)
+        }
     }
 
     override fun onResume() {
