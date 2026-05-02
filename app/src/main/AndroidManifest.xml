@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.kingshot.macro"
-    android:versionCode="4"
-    android:versionName="2.2-bare-test">
+    android:versionCode="5"
+    android:versionName="2.3-no-app-class">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -20,7 +20,7 @@
         android:allowBackup="true">
 
         <activity
-            android:name=".BareTestActivity"
+            android:name=".MainActivity"
             android:label="Kingshot Macro"
             android:exported="true">
             <intent-filter>
@@ -30,9 +30,14 @@
         </activity>
 
         <activity
-            android:name=".MainActivity"
-            android:label="Kingshot Macro Full"
-            android:exported="false" />
+            android:name=".BareTestActivity"
+            android:label="Kingshot BareTest"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".SettingsActivity"

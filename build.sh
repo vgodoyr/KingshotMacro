@@ -43,8 +43,8 @@ echo "==> Linking resources"
 "$AAPT2" link \
     -I "$ANDROID_JAR" \
     --manifest "$SRC/AndroidManifest.xml" \
-    --version-code 4 \
-    --version-name "2.2-bare-test" \
+    --version-code 5 \
+    --version-name "2.3-no-app-class" \
     -o "$BUILD/resources.ap_" \
     "$BUILD/compiled_res/"*.flat \
     --java "$BUILD/gen"
