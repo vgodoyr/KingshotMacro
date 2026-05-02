@@ -43,8 +43,8 @@ echo "==> Linking resources"
 "$AAPT2" link \
     -I "$ANDROID_JAR" \
     --manifest "$SRC/AndroidManifest.xml" \
-    --version-code 6 \
-    --version-name "2.4-defensive" \
+    --version-code 7 \
+    --version-name "2.5-no-invokedynamic" \
     -o "$BUILD/resources.ap_" \
     "$BUILD/compiled_res/"*.flat \
     --java "$BUILD/gen"
@@ -61,11 +61,18 @@ echo "==> Creating r.jar"
 ( cd "$BUILD/classes" && jar cf "$BUILD/r.jar" . )
 
 # ── 5. Compile Kotlin sources ─────────────────
+# CRITICAL: -Xlambdas=class y -Xsam-conversions=class fuerzan a kotlinc
+# a emitir lambdas como clases anónimas (en lugar de invokedynamic +
+# LambdaMetafactory). dx v1.16 NO desazucara invokedynamic, y ART de
+# Android no soporta la firma de LambdaMetafactory.metafactory que usa
+# kotlinc 1.9 → NoSuchMethodError en la primera lambda.
 echo "==> Compiling Kotlin sources"
 "$KOTLINC" \
     -classpath "$ANDROID_JAR:$BUILD/r.jar:$KOTLIN_STDLIB" \
     -jvm-target 1.8 \
     -no-reflect \
+    -Xlambdas=class \
+    -Xsam-conversions=class \
     -d "$BUILD/app_classes.jar" \
     "$SRC/java/com/kingshot/macro/"
 
