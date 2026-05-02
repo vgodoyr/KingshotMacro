@@ -30,49 +30,74 @@ class MainActivity : Activity() {
     private lateinit var btnGeminiToggle: Button
     private lateinit var tvGeminiStatus: TextView
 
-    private val geminiLogReceiver = object : BroadcastReceiver() {
+    // Inicializado en onCreate (no en field init) para que cualquier fallo
+    // sea capturado por el try-catch de onCreate y no mate el constructor.
+    private var geminiLogReceiver: BroadcastReceiver? = null
+
+    private fun makeGeminiLogReceiver() = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
-            val line = intent?.getStringExtra(MacroController.EXTRA_LOG_TEXT) ?: return
-            val current = geminiLogText.text.toString()
-            val lines = current.split("\n").takeLast(19)
-            geminiLogText.text = (lines + line).joinToString("\n")
+            try {
+                val line = intent?.getStringExtra(MacroController.EXTRA_LOG_TEXT) ?: return
+                if (!::geminiLogText.isInitialized) return
+                val current = geminiLogText.text.toString()
+                val lines = current.split("\n").takeLast(19)
+                geminiLogText.text = (lines + line).joinToString("\n")
+            } catch (_: Throwable) { /* nunca dejes que un broadcast mate el activity */ }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Outer try-catch: si TODO falla, mostramos error en pantalla en vez de
+        // dejar que el sistema cierre la app silenciosamente.
         try {
             super.onCreate(savedInstanceState)
-            Toast.makeText(this, "MainActivity ${KingshotApp.BUILD_TAG} OK", Toast.LENGTH_SHORT).show()
+            geminiLogReceiver = makeGeminiLogReceiver()
             setContentView(buildRootLayout())
-            MacroController.setActiveMacroId(this, MacroController.getActiveMacroId(this))
+            try {
+                MacroController.setActiveMacroId(this, MacroController.getActiveMacroId(this))
+            } catch (_: Throwable) { /* prefs no críticas en arranque */ }
         } catch (e: Throwable) {
-            try { super.onCreate(savedInstanceState) } catch (_: Throwable) {}
-            val msg = "${e.javaClass.name}: ${e.message}\n\n${e.cause?.toString() ?: ""}\n\n${
-                e.stackTrace.take(12).joinToString("\n") { "  at $it" }
-            }"
+            showCrashScreen(savedInstanceState, e)
+        }
+    }
+
+    private fun showCrashScreen(savedInstanceState: Bundle?, e: Throwable) {
+        try { super.onCreate(savedInstanceState) } catch (_: Throwable) {}
+        val msg = try {
+            val sw = java.io.StringWriter()
+            e.printStackTrace(java.io.PrintWriter(sw))
+            "CRASH en MainActivity:\n\n${e.javaClass.name}: ${e.message}\n\n$sw"
+        } catch (_: Throwable) { "CRASH (sin detalles): ${e.javaClass.name}" }
+        android.util.Log.e("KingshotMacro", msg, e)
+        try {
             val tv = android.widget.TextView(this).apply {
-                text = "CRASH:\n\n$msg"
+                text = msg
                 setTextColor(android.graphics.Color.RED)
-                textSize = 10f
+                textSize = 11f
                 setPadding(16, 16, 16, 16)
                 setBackgroundColor(android.graphics.Color.BLACK)
             }
-            val sv = android.widget.ScrollView(this)
-            sv.setBackgroundColor(android.graphics.Color.BLACK)
-            sv.addView(tv)
+            val sv = android.widget.ScrollView(this).apply {
+                setBackgroundColor(android.graphics.Color.BLACK)
+                addView(tv)
+            }
             setContentView(sv)
+        } catch (_: Throwable) {
+            try { Toast.makeText(applicationContext, "CRASH: ${e.message}", Toast.LENGTH_LONG).show() } catch (_: Throwable) {}
         }
     }
 
     override fun onResume() {
         super.onResume()
-        refreshTabContent()
-        registerReceiver(geminiLogReceiver, IntentFilter(MacroController.ACTION_GEMINI_LOG))
+        try { refreshTabContent() } catch (_: Throwable) {}
+        try {
+            geminiLogReceiver?.let { registerReceiver(it, IntentFilter(MacroController.ACTION_GEMINI_LOG)) }
+        } catch (_: Throwable) { /* registerReceiver puede fallar en API 34+ sin flag */ }
     }
 
     override fun onPause() {
         super.onPause()
-        try { unregisterReceiver(geminiLogReceiver) } catch (e: Exception) { /* ignored */ }
+        try { geminiLogReceiver?.let { unregisterReceiver(it) } } catch (_: Throwable) { /* ignored */ }
     }
 
     // ── Root layout: header + content area + bottom nav ──────────────────
