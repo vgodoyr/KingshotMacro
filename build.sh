@@ -24,11 +24,9 @@ echo "==> Cleaning build directory"
 rm -rf "$BUILD"
 mkdir -p "$BUILD/compiled_res" "$BUILD/gen" "$BUILD/classes" "$OUT"
 
-# ── 1. Compile XML resources with aapt2 ────────
+# ── 1. Compile ALL resources with aapt2 (XML + PNG) ────────
 echo "==> Compiling resources"
-find "$SRC/res" -name "*.xml" | while read -r f; do
-    "$AAPT2" compile "$f" -o "$BUILD/compiled_res/"
-done
+"$AAPT2" compile --dir "$SRC/res" -o "$BUILD/compiled_res/"
 
 # ── 2. Link resources → resources.ap_ + R.java ─
 echo "==> Linking resources"

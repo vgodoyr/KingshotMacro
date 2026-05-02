@@ -16,6 +16,7 @@
 
     <application
         android:label="Kingshot Macro"
+        android:icon="@mipmap/ic_launcher"
         android:allowBackup="true">
 
         <activity
