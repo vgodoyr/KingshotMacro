@@ -1,216 +1,674 @@
 package com.kingshot.macro
 
+import android.app.Activity
 import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import android.app.Activity
-import android.graphics.Color
+import android.view.ViewGroup
+import android.widget.*
 
 class MainActivity : Activity() {
 
     private val REQUEST_OVERLAY = 1001
-    private lateinit var statusOverlay: TextView
-    private lateinit var statusAccess: TextView
-    private lateinit var btnOverlay: Button
-    private lateinit var btnAccess: Button
-    private lateinit var btnLaunch: Button
+    private var currentTab = 0
+    private lateinit var tabContents: Array<View>
+    private lateinit var tabButtons: Array<Button>
+
+    // Pestaña 3 – Auto IA
+    private lateinit var geminiLogText: TextView
+    private lateinit var btnGeminiToggle: Button
+    private lateinit var tvGeminiStatus: TextView
+
+    private val geminiLogReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            val line = intent?.getStringExtra(MacroController.EXTRA_LOG_TEXT) ?: return
+            val current = geminiLogText.text.toString()
+            val lines = current.split("\n").takeLast(19)
+            geminiLogText.text = (lines + line).joinToString("\n")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(buildLayout())
-        title = "Kingshot Macro"
+        setContentView(buildRootLayout())
+        MacroController.setActiveMacroId(this, MacroController.getActiveMacroId(this))
     }
 
     override fun onResume() {
         super.onResume()
-        refreshPermissionStatus()
+        refreshTabContent()
+        registerReceiver(geminiLogReceiver, IntentFilter(MacroController.ACTION_GEMINI_LOG))
     }
 
-    private fun buildLayout(): ScrollView {
-        val scroll = ScrollView(this)
+    override fun onPause() {
+        super.onPause()
+        try { unregisterReceiver(geminiLogReceiver) } catch (e: Exception) { /* ignored */ }
+    }
+
+    // ── Root layout: header + content area + bottom nav ──────────────────
+
+    private fun buildRootLayout(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 40, 32, 40)
+            setBackgroundColor(Color.parseColor("#0D1117"))
         }
 
-        val header = TextView(this).apply {
-            text = "Kingshot Macro"
-            textSize = 24f
-            gravity = Gravity.CENTER
-            setTextColor(Color.parseColor("#1565C0"))
-            setPadding(0, 0, 0, 8)
+        // Header
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#161B22"))
+            setPadding(20, dpToPx(12), 20, dpToPx(12))
+            setGravity(Gravity.CENTER_VERTICAL)
         }
-        root.addView(header)
-
-        val subtitle = TextView(this).apply {
-            text = "Auto clan invitation tapper"
-            textSize = 14f
-            gravity = Gravity.CENTER
-            setTextColor(Color.GRAY)
-            setPadding(0, 0, 0, 32)
+        val headerTitle = TextView(this).apply {
+            text = "⚔ Kingshot Macro"
+            textSize = 18f; setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        root.addView(subtitle)
+        header.addView(headerTitle)
+        root.addView(header, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
-        // Step 1: Overlay permission
-        root.addView(buildSectionLabel("Step 1: Overlay Permission"))
-        statusOverlay = buildStatusText()
-        root.addView(statusOverlay)
-        btnOverlay = buildActionButton("Grant Overlay Permission") {
-            requestOverlayPermission()
+        // Content area
+        val contentFrame = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#0D1117"))
         }
-        root.addView(btnOverlay)
-
-        root.addView(buildDivider())
-
-        // Step 2: Accessibility permission
-        root.addView(buildSectionLabel("Step 2: Accessibility Service"))
-        statusAccess = buildStatusText()
-        root.addView(statusAccess)
-        btnAccess = buildActionButton("Enable Accessibility Service") {
-            openAccessibilitySettings()
+        tabContents = arrayOf(buildTabHome(), buildTabMacros(), buildTabAutoIA(), buildTabSettings())
+        tabContents.forEach { v ->
+            contentFrame.addView(v, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            v.visibility = View.GONE
         }
-        root.addView(btnAccess)
+        tabContents[0].visibility = View.VISIBLE
+        root.addView(contentFrame, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        root.addView(buildDivider())
+        // Bottom nav bar
+        val navBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#161B22"))
+        }
+        val tabLabels = arrayOf("🏠 Inicio", "🎮 Macros", "🤖 Auto IA", "⚙ Ajustes")
+        tabButtons = Array(4) { i ->
+            Button(this).apply {
+                text = tabLabels[i]; textSize = 11f
+                setTextColor(if (i == 0) Color.parseColor("#58A6FF") else Color.GRAY)
+                setBackgroundColor(Color.TRANSPARENT)
+                setPadding(0, dpToPx(8), 0, dpToPx(8))
+                setOnClickListener { switchTab(i) }
+            }
+        }
+        tabButtons.forEach { btn ->
+            navBar.addView(btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        root.addView(navBar, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
-        // Step 3: Launch
-        root.addView(buildSectionLabel("Step 3: Launch Overlay"))
-        val launchDesc = TextView(this).apply {
-            text = "Once permissions are granted, launch the floating control panel. " +
-                    "Open Kingshot and navigate to the Clan Invitation screen, then tap Start."
-            textSize = 13f
-            setTextColor(Color.DKGRAY)
+        return root
+    }
+
+    private fun switchTab(index: Int) {
+        currentTab = index
+        tabContents.forEachIndexed { i, v -> v.visibility = if (i == index) View.VISIBLE else View.GONE }
+        tabButtons.forEachIndexed { i, b ->
+            b.setTextColor(if (i == index) Color.parseColor("#58A6FF") else Color.GRAY)
+        }
+        refreshTabContent()
+    }
+
+    private fun refreshTabContent() {
+        when (currentTab) {
+            0 -> refreshHomeTab()
+            1 -> refreshMacrosTab()
+            2 -> refreshAutoIATab()
+        }
+    }
+
+    // ── Tab 1: Inicio ─────────────────────────────────────────────────────
+
+    private lateinit var tvPermOverlay: TextView
+    private lateinit var tvPermAccess: TextView
+    private lateinit var tvCurrentMacro: TextView
+    private lateinit var btnLaunchOverlay: Button
+    private lateinit var btnGrantOverlay: Button
+    private lateinit var btnGrantAccess: Button
+
+    private fun buildTabHome(): ScrollView {
+        val scroll = ScrollView(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(24, 24, 24, 24)
+        }
+
+        // Permission cards
+        root.addView(sectionLabel("Permisos requeridos"))
+
+        val cardOverlay = permCard("Superposición de pantalla", "Para mostrar el panel flotante")
+        tvPermOverlay = cardOverlay.findViewWithTag("status") as TextView
+        btnGrantOverlay = cardOverlay.findViewWithTag("btn") as Button
+        btnGrantOverlay.setOnClickListener { requestOverlayPermission() }
+        root.addView(cardOverlay, cardMargin())
+
+        val cardAccess = permCard("Servicio de accesibilidad", "Para ejecutar toques automáticos")
+        tvPermAccess = cardAccess.findViewWithTag("status") as TextView
+        btnGrantAccess = cardAccess.findViewWithTag("btn") as Button
+        btnGrantAccess.setOnClickListener { openAccessibilitySettings() }
+        root.addView(cardAccess, cardMargin())
+
+        root.addView(divider())
+        root.addView(sectionLabel("Control del macro"))
+
+        tvCurrentMacro = TextView(this).apply {
+            text = "Macro activo: cargando…"; setTextColor(Color.LTGRAY); textSize = 13f
             setPadding(0, 0, 0, 12)
         }
-        root.addView(launchDesc)
-        btnLaunch = buildActionButton("Launch Floating Control") {
-            launchOverlay()
+        root.addView(tvCurrentMacro)
+
+        btnLaunchOverlay = Button(this).apply {
+            text = "Iniciar panel flotante"
+            setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#238636"))
+            textSize = 14f
+            setOnClickListener { launchOverlay() }
         }
-        root.addView(btnLaunch)
+        root.addView(btnLaunchOverlay, fullWidthBtn())
 
-        root.addView(buildDivider())
+        root.addView(divider())
+        root.addView(sectionLabel("Instrucciones rápidas"))
+        root.addView(infoText(
+            "1. Concede ambos permisos de arriba.\n" +
+            "2. Pulsa 'Iniciar panel flotante'.\n" +
+            "3. Abre Kingshot, ve a la pantalla que quieras automatizar.\n" +
+            "4. Usa el panel flotante para Iniciar / Pausar / Parar.\n" +
+            "5. Para Auto IA ve a la pestaña 🤖 Auto IA.\n" +
+            "6. Para crear macros propios ve a 🎮 Macros."
+        ))
 
-        // Settings shortcut
-        val btnSettings = buildActionButton("Open Settings") {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        scroll.addView(root); return scroll
+    }
+
+    private fun permCard(title: String, subtitle: String): LinearLayout {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor("#161B22"))
+            setPadding(16, 12, 12, 12)
+            setGravity(Gravity.CENTER_VERTICAL)
         }
-        root.addView(btnSettings)
+        val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        texts.addView(TextView(this).apply {
+            text = title; setTextColor(Color.WHITE); textSize = 13f
+        })
+        texts.addView(TextView(this).apply {
+            text = subtitle; setTextColor(Color.GRAY); textSize = 11f
+        })
+        val tvStatus = TextView(this).apply {
+            text = "…"; textSize = 12f; tag = "status"; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dpToPx(60), LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        val btn = Button(this).apply {
+            text = "Conceder"; textSize = 10f; tag = "btn"
+            setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#1F6FEB"))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(80), dpToPx(34))
+        }
+        card.addView(texts, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        card.addView(tvStatus); card.addView(btn)
+        return card
+    }
 
-        // Instructions
-        root.addView(buildSectionLabel("How it works"))
-        val instructions = TextView(this).apply {
-            text = "1. The macro taps a 2-column grid of player cards automatically.\n" +
-                    "2. Every 8 taps it scrolls down to load more players.\n" +
-                    "3. Use Start/Pause/Stop from the floating panel.\n" +
-                    "4. Tap interval (1–3 s) and scroll frequency can be configured in Settings."
+    private fun refreshHomeTab() {
+        val overlayOk = hasOverlayPermission()
+        val accessOk = isAccessibilityEnabled()
+        tvPermOverlay.text = if (overlayOk) "✓" else "✗"
+        tvPermOverlay.setTextColor(if (overlayOk) Color.parseColor("#3FB950") else Color.parseColor("#F85149"))
+        btnGrantOverlay.isEnabled = !overlayOk
+
+        tvPermAccess.text = if (accessOk) "✓" else "✗"
+        tvPermAccess.setTextColor(if (accessOk) Color.parseColor("#3FB950") else Color.parseColor("#F85149"))
+        btnGrantAccess.isEnabled = !accessOk
+
+        btnLaunchOverlay.isEnabled = overlayOk && accessOk
+        btnLaunchOverlay.setBackgroundColor(
+            if (overlayOk && accessOk) Color.parseColor("#238636") else Color.DKGRAY)
+
+        val macroName = MacroLibrary.getById(this, MacroController.getActiveMacroId(this))?.name
+            ?: "Invitar al Clan"
+        tvCurrentMacro.text = "Macro activo: $macroName"
+    }
+
+    // ── Tab 2: Macros ─────────────────────────────────────────────────────
+
+    private lateinit var macroListContainer: LinearLayout
+
+    private fun buildTabMacros(): View {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#0D1117"))
+        }
+
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; setPadding(20, 16, 16, 12); setGravity(Gravity.CENTER_VERTICAL)
+        }
+        header.addView(sectionLabel("Biblioteca de macros").apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        val btnNew = Button(this).apply {
+            text = "+ Nuevo"; textSize = 11f
+            setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#238636"))
+            setPadding(16, 8, 16, 8)
+            setOnClickListener { startActivity(Intent(this@MainActivity, MacroRecorderActivity::class.java)) }
+        }
+        header.addView(btnNew, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(36)))
+        root.addView(header)
+
+        root.addView(divider())
+
+        val scroll = ScrollView(this)
+        macroListContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(16, 8, 16, 16) }
+        scroll.addView(macroListContainer)
+        root.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        return root
+    }
+
+    private fun refreshMacrosTab() {
+        macroListContainer.removeAllViews()
+        val allMacros = MacroLibrary.getAllMacros(this)
+        val activeMacroId = MacroController.getActiveMacroId(this)
+        allMacros.forEach { macro ->
+            val card = buildMacroCard(macro, macro.id == activeMacroId)
+            macroListContainer.addView(card, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 8) })
+        }
+    }
+
+    private fun buildMacroCard(macro: Macro, isActive: Boolean): LinearLayout {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(
+                if (isActive) Color.parseColor("#1F3A5F") else Color.parseColor("#161B22"))
+            setPadding(16, 12, 12, 12)
+        }
+
+        val topRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; setGravity(Gravity.CENTER_VERTICAL)
+        }
+        val nameView = TextView(this).apply {
+            text = (if (macro.isBuiltin) "⭐ " else "📝 ") + macro.name
+            setTextColor(if (isActive) Color.parseColor("#79C0FF") else Color.WHITE)
             textSize = 13f
-            setTextColor(Color.DKGRAY)
-            setPadding(0, 0, 0, 16)
         }
-        root.addView(instructions)
+        topRow.addView(nameView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
-        scroll.addView(root)
-        return scroll
+        if (!macro.isBuiltin) {
+            val btnDel = Button(this).apply {
+                text = "🗑"; textSize = 11f; setTextColor(Color.parseColor("#F85149"))
+                setBackgroundColor(Color.TRANSPARENT)
+                setPadding(8, 4, 8, 4)
+                setOnClickListener {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setMessage("¿Eliminar macro '${macro.name}'?")
+                        .setPositiveButton("Eliminar") { _, _ ->
+                            MacroLibrary.deleteMacro(this@MainActivity, macro.id)
+                            refreshMacrosTab()
+                        }.setNegativeButton("Cancelar", null).show()
+                }
+            }
+            topRow.addView(btnDel, LinearLayout.LayoutParams(dpToPx(40), dpToPx(34)))
+        }
+
+        val btnSelect = Button(this).apply {
+            text = if (isActive) "✓ Activo" else "▶ Usar"
+            textSize = 10f; setTextColor(Color.WHITE)
+            setBackgroundColor(if (isActive) Color.parseColor("#238636") else Color.parseColor("#1F6FEB"))
+            setPadding(12, 4, 12, 4)
+            setOnClickListener {
+                MacroController.setActiveMacroId(this@MainActivity, macro.id)
+                refreshMacrosTab()
+                refreshHomeTab()
+                Toast.makeText(this@MainActivity, "'${macro.name}' seleccionado", Toast.LENGTH_SHORT).show()
+            }
+        }
+        topRow.addView(btnSelect, LinearLayout.LayoutParams(dpToPx(72), dpToPx(34)))
+        card.addView(topRow)
+
+        val descView = TextView(this).apply {
+            text = macro.description; setTextColor(Color.GRAY); textSize = 11f
+            setPadding(0, 4, 0, 0)
+        }
+        card.addView(descView)
+
+        if (!macro.isBuiltin && macro.steps.isNotEmpty()) {
+            val stepsInfo = TextView(this).apply {
+                text = "${macro.steps.size} pasos · ${if (macro.isLooping) "bucle" else "una vez"}"
+                setTextColor(Color.parseColor("#8B949E")); textSize = 10f
+            }
+            card.addView(stepsInfo)
+        }
+        return card
     }
 
-    private fun buildSectionLabel(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 16f
-        setTextColor(Color.parseColor("#1565C0"))
-        setPadding(0, 16, 0, 4)
+    // ── Tab 3: Auto IA ───────────────────────────────────────────────────
+
+    private lateinit var etApiKey: EditText
+    private lateinit var tvModeSelector: TextView
+    private lateinit var tvIntervalValue: TextView
+
+    private fun buildTabAutoIA(): ScrollView {
+        val scroll = ScrollView(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(24, 20, 24, 24)
+            setBackgroundColor(Color.parseColor("#0D1117"))
+        }
+
+        root.addView(sectionLabel("🤖 Auto IA con Gemini"))
+        root.addView(infoText("Gemini analiza la pantalla de tu juego y decide qué tocar automáticamente. Necesitas una API Key gratuita de Google AI Studio."))
+        root.addView(divider())
+
+        // API Key
+        root.addView(fieldLabel("API Key de Gemini"))
+        etApiKey = EditText(this).apply {
+            hint = "AIza…"; textSize = 13f
+            setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
+            setBackgroundColor(Color.parseColor("#21262D"))
+            transformationMethod = PasswordTransformationMethod.getInstance()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setPadding(12, 10, 12, 10)
+            setText(MacroController.getGeminiApiKey(this@MainActivity))
+        }
+        root.addView(etApiKey, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 4, 0, 4) })
+
+        val btnSaveKey = Button(this).apply {
+            text = "Guardar clave"; textSize = 11f; setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#1F6FEB"))
+            setOnClickListener {
+                MacroController.setGeminiApiKey(this@MainActivity, etApiKey.text.toString().trim())
+                Toast.makeText(this@MainActivity, "Clave guardada", Toast.LENGTH_SHORT).show()
+            }
+        }
+        root.addView(btnSaveKey, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 4, 0, 16) })
+
+        root.addView(divider())
+
+        // Mode selector
+        root.addView(fieldLabel("Modo de juego"))
+        val modes = arrayOf("all" to "Todo (recomendado)", "train" to "Entrenar tropas",
+            "research" to "Investigar", "recruit" to "Reclutar héroes",
+            "collect" to "Recolectar recursos", "hunt" to "Cazar bestias", "build" to "Construir")
+        val modeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; setGravity(Gravity.CENTER_VERTICAL)
+        }
+        tvModeSelector = TextView(this).apply {
+            val current = modes.find { it.first == MacroController.getAutoPlayMode(this@MainActivity) }?.second ?: "Todo"
+            text = current; setTextColor(Color.WHITE); textSize = 13f
+            setBackgroundColor(Color.parseColor("#21262D")); setPadding(12, 10, 12, 10)
+        }
+        modeRow.addView(tvModeSelector, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        val btnMode = Button(this).apply {
+            text = "Cambiar"; textSize = 11f; setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#30363D"))
+            setOnClickListener {
+                val labels = modes.map { it.second }.toTypedArray()
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Modo de juego")
+                    .setItems(labels) { _, which ->
+                        val (key, label) = modes[which]
+                        MacroController.setAutoPlayMode(this@MainActivity, key)
+                        tvModeSelector.text = label
+                    }.show()
+            }
+        }
+        modeRow.addView(btnMode, LinearLayout.LayoutParams(dpToPx(90), dpToPx(40)))
+        root.addView(modeRow, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 4, 0, 12) })
+
+        // Interval
+        root.addView(fieldLabel("Intervalo entre acciones"))
+        val intervalRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setGravity(Gravity.CENTER_VERTICAL) }
+        tvIntervalValue = TextView(this).apply {
+            text = "${MacroController.getAutoPlayIntervalS(this@MainActivity)}s"
+            setTextColor(Color.WHITE); textSize = 14f; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dpToPx(50), LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        val seekInterval = SeekBar(this).apply {
+            max = 7 // 3..10
+            progress = MacroController.getAutoPlayIntervalS(this@MainActivity) - 3
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, p: Int, f: Boolean) {
+                    val v = p + 3
+                    MacroController.setAutoPlayIntervalS(this@MainActivity, v)
+                    tvIntervalValue.text = "${v}s"
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            })
+        }
+        intervalRow.addView(seekInterval, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        intervalRow.addView(tvIntervalValue)
+        root.addView(intervalRow, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 4, 0, 16) })
+
+        root.addView(divider())
+
+        // Start/Stop button
+        tvGeminiStatus = TextView(this).apply {
+            text = "Estado: Inactivo"; setTextColor(Color.GRAY); textSize = 12f; gravity = Gravity.CENTER
+        }
+        root.addView(tvGeminiStatus, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 8, 0, 8) })
+
+        btnGeminiToggle = Button(this).apply {
+            text = "▶  INICIAR AUTO IA"; textSize = 16f; setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#238636"))
+            setOnClickListener { toggleGeminiAutoPlay() }
+        }
+        root.addView(btnGeminiToggle, fullWidthBtn())
+        root.addView(divider())
+
+        // Log
+        root.addView(sectionLabel("Registro de acciones"))
+        val logScroll = ScrollView(this).apply {
+            setBackgroundColor(Color.parseColor("#0D1117"))
+        }
+        geminiLogText = TextView(this).apply {
+            text = "—"; setTextColor(Color.parseColor("#8B949E")); textSize = 11f
+            setPadding(8, 8, 8, 8); typeface = android.graphics.Typeface.MONOSPACE
+        }
+        logScroll.addView(geminiLogText)
+        root.addView(logScroll, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(200)
+        ).apply { setMargins(0, 4, 0, 0) })
+
+        scroll.addView(root); return scroll
     }
 
-    private fun buildStatusText() = TextView(this).apply {
-        text = "Checking..."
-        textSize = 13f
-        setPadding(0, 0, 0, 8)
+    private fun refreshAutoIATab() {
+        val running = MacroController.geminiRunning
+        if (::btnGeminiToggle.isInitialized) {
+            btnGeminiToggle.text = if (running) "⏹  DETENER AUTO IA" else "▶  INICIAR AUTO IA"
+            btnGeminiToggle.setBackgroundColor(
+                if (running) Color.parseColor("#DA3633") else Color.parseColor("#238636"))
+        }
+        if (::tvGeminiStatus.isInitialized) {
+            tvGeminiStatus.text = if (running) "Estado: ● Activo" else "Estado: Inactivo"
+            tvGeminiStatus.setTextColor(if (running) Color.parseColor("#3FB950") else Color.GRAY)
+        }
     }
 
-    private fun buildDivider(): View = View(this).apply {
-        setBackgroundColor(Color.LTGRAY)
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 1
-        ).apply { setMargins(0, 16, 0, 16) }
+    private fun toggleGeminiAutoPlay() {
+        if (MacroController.geminiRunning) {
+            sendBroadcast(Intent(MacroController.ACTION_GEMINI_STOP).apply { setPackage(packageName) })
+            MacroController.geminiRunning = false
+        } else {
+            val key = MacroController.getGeminiApiKey(this)
+            if (key.isBlank()) {
+                Toast.makeText(this, "Primero guarda tu API Key de Gemini", Toast.LENGTH_LONG).show()
+                return
+            }
+            if (!isAccessibilityEnabled()) {
+                Toast.makeText(this, "Activa el servicio de accesibilidad primero", Toast.LENGTH_LONG).show()
+                return
+            }
+            startService(Intent(this, GeminiAutoPlayService::class.java).apply {
+                action = MacroController.ACTION_GEMINI_START
+            })
+            MacroController.geminiRunning = true
+        }
+        refreshAutoIATab()
     }
 
-    private fun buildActionButton(label: String, action: () -> Unit) = Button(this).apply {
-        text = label
-        setOnClickListener { action() }
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 0, 0, 8) }
+    // ── Tab 4: Ajustes ───────────────────────────────────────────────────
+
+    private fun buildTabSettings(): ScrollView {
+        val scroll = ScrollView(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(24, 20, 24, 24)
+            setBackgroundColor(Color.parseColor("#0D1117"))
+        }
+        root.addView(sectionLabel("Parámetros del macro de clan"))
+
+        val tapDelay = MacroController.getTapDelayMs(this)
+        addSeekSetting(root, "Delay entre toques", 1000, 3000, tapDelay.toInt(), { "${it}ms" }) {
+            MacroController.setTapDelayMs(this, it.toLong())
+        }
+        val tapsScroll = MacroController.getTapsBeforeScroll(this)
+        addSeekSetting(root, "Toques antes de scroll", 2, 20, tapsScroll, { "$it toques" }) {
+            MacroController.setTapsBeforeScroll(this, it)
+        }
+        root.addView(divider())
+        root.addView(sectionLabel("Posición de la cuadrícula (% pantalla)"))
+
+        val c1 = (MacroController.getCol1XPct(this) * 100).toInt()
+        addSeekSetting(root, "Columna 1 X", 10, 50, c1, { "$it%" }) {
+            MacroController.setCol1XPct(this, it / 100f)
+        }
+        val c2 = (MacroController.getCol2XPct(this) * 100).toInt()
+        addSeekSetting(root, "Columna 2 X", 50, 90, c2, { "$it%" }) {
+            MacroController.setCol2XPct(this, it / 100f)
+        }
+        val rowY = (MacroController.getRowStartYPct(this) * 100).toInt()
+        addSeekSetting(root, "Primera fila Y", 10, 50, rowY, { "$it%" }) {
+            MacroController.setRowStartYPct(this, it / 100f)
+        }
+        val rowH = (MacroController.getRowHeightPct(this) * 100).toInt()
+        addSeekSetting(root, "Altura de fila", 5, 25, rowH, { "$it%" }) {
+            MacroController.setRowHeightPct(this, it / 100f)
+        }
+        root.addView(divider())
+        val btnReset = Button(this).apply {
+            text = "Restablecer valores por defecto"; textSize = 12f
+            setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#21262D"))
+            setOnClickListener {
+                MacroController.setTapDelayMs(this@MainActivity, 1500L)
+                MacroController.setTapsBeforeScroll(this@MainActivity, 8)
+                MacroController.setCol1XPct(this@MainActivity, 0.25f)
+                MacroController.setCol2XPct(this@MainActivity, 0.75f)
+                MacroController.setRowStartYPct(this@MainActivity, 0.30f)
+                MacroController.setRowHeightPct(this@MainActivity, 0.14f)
+                switchTab(3)
+                Toast.makeText(this@MainActivity, "Valores restablecidos", Toast.LENGTH_SHORT).show()
+            }
+        }
+        root.addView(btnReset, fullWidthBtn())
+        scroll.addView(root); return scroll
     }
 
-    private fun hasOverlayPermission(): Boolean =
-        Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(this)
+    private fun addSeekSetting(parent: LinearLayout, label: String, min: Int, max: Int,
+                                current: Int, fmt: (Int) -> String, onChange: (Int) -> Unit) {
+        val tv = TextView(this).apply {
+            text = "$label: ${fmt(current)}"; setTextColor(Color.LTGRAY); textSize = 13f
+        }
+        parent.addView(tv)
+        val sb = SeekBar(this).apply {
+            this.max = max - min; progress = (current - min).coerceIn(0, this.max)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: SeekBar?, p: Int, f: Boolean) {
+                    val v = p + min; tv.text = "$label: ${fmt(v)}"; onChange(v)
+                }
+                override fun onStartTrackingTouch(s: SeekBar?) {}
+                override fun onStopTrackingTouch(s: SeekBar?) {}
+            })
+        }
+        parent.addView(sb, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 0, 0, 14) })
+    }
+
+    // ── Permissions ───────────────────────────────────────────────────────
+
+    private fun hasOverlayPermission() = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(this)
 
     private fun isAccessibilityEnabled(): Boolean {
         val name = "${packageName}/${KingshotAccessibilityService::class.java.name}"
-        val enabled = Settings.Secure.getString(
-            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: ""
+        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
         return enabled.contains(name)
     }
 
-    private fun refreshPermissionStatus() {
-        val overlayOk = hasOverlayPermission()
-        val accessOk = isAccessibilityEnabled()
-
-        statusOverlay.text = if (overlayOk) "✓ Granted" else "✗ Not granted"
-        statusOverlay.setTextColor(if (overlayOk) Color.parseColor("#2E7D32") else Color.RED)
-        btnOverlay.isEnabled = !overlayOk
-
-        statusAccess.text = if (accessOk) "✓ Enabled" else "✗ Not enabled"
-        statusAccess.setTextColor(if (accessOk) Color.parseColor("#2E7D32") else Color.RED)
-        btnAccess.isEnabled = !accessOk
-
-        btnLaunch.isEnabled = overlayOk && accessOk
-    }
-
     private fun requestOverlayPermission() {
-        if (Build.VERSION.SDK_INT >= 23) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
-            startActivityForResult(intent, REQUEST_OVERLAY)
-        }
+        if (Build.VERSION.SDK_INT >= 23)
+            startActivityForResult(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")), REQUEST_OVERLAY)
     }
 
     private fun openAccessibilitySettings() {
         AlertDialog.Builder(this)
-            .setTitle("Enable Accessibility Service")
-            .setMessage(
-                "In the next screen:\n\n" +
-                "1. Find 'Kingshot Macro'\n" +
-                "2. Tap it and enable the service\n" +
-                "3. Accept the permission dialog\n\n" +
-                "Then return to this app."
-            )
-            .setPositiveButton("Go to Settings") { _, _ ->
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+            .setTitle("Activar accesibilidad")
+            .setMessage("En la siguiente pantalla:\n\n1. Busca 'Kingshot Macro'\n2. Actívalo\n3. Acepta el diálogo\n\nLuego vuelve aquí.")
+            .setPositiveButton("Ir a Ajustes") { _, _ -> startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            .setNegativeButton("Cancelar", null).show()
     }
 
     private fun launchOverlay() {
         if (!hasOverlayPermission() || !isAccessibilityEnabled()) return
         startService(Intent(this, FloatingOverlayService::class.java))
+        Toast.makeText(this, "Panel flotante iniciado", Toast.LENGTH_SHORT).show()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        refreshPermissionStatus()
+        refreshHomeTab()
     }
+
+    // ── UI helpers ────────────────────────────────────────────────────────
+
+    private fun sectionLabel(text: String) = TextView(this).apply {
+        this.text = text; textSize = 15f; setTextColor(Color.parseColor("#58A6FF"))
+        setPadding(0, 8, 0, 8)
+    }
+    private fun fieldLabel(text: String) = TextView(this).apply {
+        this.text = text; textSize = 12f; setTextColor(Color.GRAY); setPadding(0, 12, 0, 4)
+    }
+    private fun infoText(text: String) = TextView(this).apply {
+        this.text = text; textSize = 12f; setTextColor(Color.parseColor("#8B949E")); setPadding(0, 4, 0, 8)
+    }
+    private fun divider() = View(this).apply {
+        setBackgroundColor(Color.parseColor("#30363D"))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
+            setMargins(0, 12, 0, 12)
+        }
+    }
+    private fun fullWidthBtn() = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+        setMargins(0, 8, 0, 8)
+    }
+    private fun cardMargin() = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+        setMargins(0, 0, 0, 8)
+    }
+    private fun dpToPx(dp: Int) = (dp * resources.displayMetrics.density).toInt()
 }

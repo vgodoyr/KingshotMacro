@@ -68,12 +68,7 @@ class KingshotAccessibilityService : AccessibilityService() {
             addAction(MacroController.ACTION_STOP)
             addAction(MacroController.ACTION_RUN_GEMINI_ACTION)
         }
-        if (Build.VERSION.SDK_INT >= 33) {
-            // RECEIVER_NOT_EXPORTED = 4
-            registerReceiver(commandReceiver, filter, 4)
-        } else {
-            registerReceiver(commandReceiver, filter)
-        }
+        registerReceiver(commandReceiver, filter)
         Log.d(TAG, "AccessibilityService connected. Screen: ${screenWidth}x${screenHeight}")
     }
 

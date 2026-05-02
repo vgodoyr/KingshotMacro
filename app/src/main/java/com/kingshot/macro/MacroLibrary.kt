@@ -91,37 +91,124 @@ object MacroLibrary {
     fun getBuiltinMacros(): List<Macro> = listOf(
         Macro(
             id = "clan_invitation",
-            name = "Invitar al Clan (2 columnas)",
+            name = "Invitar al Clan",
             description = "Toca cuadrícula 2 columnas, scroll cada 8 toques. Usa los % de la pantalla de Ajustes.",
             isBuiltin = true,
             isLooping = true
         ),
         Macro(
-            id = "tap_center",
-            name = "Toque Central",
-            description = "Toca repetidamente el centro de la pantalla",
-            isBuiltin = true,
-            isLooping = true,
-            steps = listOf(MacroStep.tap(50, 50, waitMs = 1000))
-        ),
-        Macro(
-            id = "auto_collect",
+            id = "collect_resources",
             name = "Recolectar Recursos",
-            description = "Toca esquinas y centro para recoger recursos visibles",
+            description = "Toca los edificios de la ciudad que tienen recursos listos para recoger",
             isBuiltin = true,
             isLooping = true,
             steps = listOf(
-                MacroStep.tap(20, 30, 600),
-                MacroStep.tap(80, 30, 600),
-                MacroStep.tap(20, 60, 600),
-                MacroStep.tap(80, 60, 600),
-                MacroStep.tap(50, 50, 600)
+                // Cofre superior izquierdo (granero/mina)
+                MacroStep.tap(22, 35, 700),
+                // Cofre superior derecho (aserradero/granja)
+                MacroStep.tap(75, 30, 700),
+                // Cofre centro izquierda
+                MacroStep.tap(30, 55, 700),
+                // Cofre centro
+                MacroStep.tap(52, 52, 700),
+                // Cofre centro derecha
+                MacroStep.tap(72, 55, 700),
+                // Cofre inferior izquierdo
+                MacroStep.tap(25, 72, 700),
+                // Cofre inferior derecha
+                MacroStep.tap(70, 72, 700),
+                // Cerrar posible diálogo de recolección (OK)
+                MacroStep.tap(50, 75, 500),
+                MacroStep.wait(1000)
+            )
+        ),
+        Macro(
+            id = "train_infantry",
+            name = "Entrenar Infantería",
+            description = "Abre el Cuartel y entrena el máximo de tropas disponibles",
+            isBuiltin = true,
+            isLooping = false,
+            steps = listOf(
+                // Tap en edificio Cuartel (zona inferior izquierda de la ciudad)
+                MacroStep.tap(28, 65, 1200),
+                // Seleccionar tipo de tropa de nivel superior (tab derecho)
+                MacroStep.tap(75, 42, 800),
+                // Tap en "Max" o campo de cantidad
+                MacroStep.tap(72, 62, 600),
+                // Tap en botón "Entrenar"
+                MacroStep.tap(75, 75, 1000),
+                // Cerrar panel
+                MacroStep.tap(90, 12, 800),
+                MacroStep.wait(1000)
+            )
+        ),
+        Macro(
+            id = "hero_recruit_free",
+            name = "Reclutar Héroe Gratis",
+            description = "Abre la pantalla de héroes y toca el botón de reclutamiento gratuito",
+            isBuiltin = true,
+            isLooping = false,
+            steps = listOf(
+                // Tap en ícono de Héroes (barra inferior)
+                MacroStep.tap(50, 92, 1200),
+                // Tap en pestaña "Reclutar"
+                MacroStep.tap(70, 30, 800),
+                // Tap en "Reclutar una vez Gratis"
+                MacroStep.tap(50, 72, 1000),
+                // Confirmar si hay diálogo
+                MacroStep.tap(60, 62, 800),
+                // Cerrar pantalla
+                MacroStep.tap(5, 12, 800),
+                MacroStep.wait(1000)
+            )
+        ),
+        Macro(
+            id = "beast_hunt",
+            name = "Cazar Bestias",
+            description = "Abre el mapa de misiones de información y ataca bestias disponibles",
+            isBuiltin = true,
+            isLooping = true,
+            steps = listOf(
+                // Tap en ícono de Mundo/Mapa
+                MacroStep.tap(85, 92, 1200),
+                // Tap en "Misiones de información"
+                MacroStep.tap(30, 55, 1000),
+                // Tap en primera bestia visible (zona central del mapa)
+                MacroStep.tap(50, 48, 1000),
+                // Tap en botón Atacar
+                MacroStep.tap(65, 75, 1000),
+                // Confirmar ataque
+                MacroStep.tap(60, 65, 1000),
+                // Volver
+                MacroStep.tap(5, 12, 800),
+                MacroStep.tap(5, 12, 800),
+                MacroStep.wait(2000)
+            )
+        ),
+        Macro(
+            id = "research_next",
+            name = "Investigar Siguiente",
+            description = "Abre la Academia e inicia el próximo nodo de investigación disponible",
+            isBuiltin = true,
+            isLooping = false,
+            steps = listOf(
+                // Tap en edificio Academia (zona superior central)
+                MacroStep.tap(52, 38, 1200),
+                // Tap en primer nodo disponible (zona central del árbol)
+                MacroStep.tap(50, 50, 1000),
+                // Tap en botón "Investigar"
+                MacroStep.tap(62, 72, 1000),
+                // Confirmar si hay diálogo de costos
+                MacroStep.tap(60, 62, 800),
+                // Cerrar panel Academia
+                MacroStep.tap(90, 12, 800),
+                MacroStep.wait(1000)
             )
         ),
         Macro(
             id = "scroll_down",
             name = "Scroll hacia abajo",
-            description = "Hace scroll abajo continuamente",
+            description = "Hace scroll continuo hacia abajo",
             isBuiltin = true,
             isLooping = true,
             steps = listOf(MacroStep.swipe(50, 70, 50, 30, durMs = 400, waitMs = 1500))

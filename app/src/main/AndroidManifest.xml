@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.kingshot.macro"
-    android:versionCode="1"
-    android:versionName="1.0">
+    android:versionCode="2"
+    android:versionName="2.0">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <uses-sdk
         android:minSdkVersion="26"
@@ -31,6 +33,12 @@
             android:label="Settings"
             android:exported="false" />
 
+        <activity
+            android:name=".MacroRecorderActivity"
+            android:label="Grabar Macro"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
+
         <service
             android:name=".KingshotAccessibilityService"
             android:label="Kingshot Macro"
@@ -46,6 +54,10 @@
 
         <service
             android:name=".FloatingOverlayService"
+            android:exported="false" />
+
+        <service
+            android:name=".GeminiAutoPlayService"
             android:exported="false" />
 
     </application>

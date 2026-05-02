@@ -28,6 +28,7 @@ class MacroRecorderActivity : Activity() {
 
     private lateinit var reticleView: ReticleView
     private lateinit var stepsText: TextView
+    private lateinit var posText: TextView
     private lateinit var btnAddTap: Button
     private lateinit var btnUndo: Button
 
@@ -93,12 +94,11 @@ class MacroRecorderActivity : Activity() {
         panel.addView(title)
 
         // Position display
-        val posText = TextView(this).apply {
+        posText = TextView(this).apply {
             text = "Posición: 50% × 50%"
             setTextColor(Color.LTGRAY)
             textSize = 12f
             gravity = Gravity.CENTER
-            tag = "pos"
         }
         panel.addView(posText)
 
@@ -191,8 +191,7 @@ class MacroRecorderActivity : Activity() {
     }
 
     private fun updatePosDisplay() {
-        (findViewWithTag<TextView>("pos"))?.text =
-            "Posición: ${reticleXPct.toInt()}% × ${reticleYPct.toInt()}%"
+        posText.text = "Posición: ${reticleXPct.toInt()}% × ${reticleYPct.toInt()}%"
     }
 
     // ── Macro step actions ────────────────────────────────────────────────

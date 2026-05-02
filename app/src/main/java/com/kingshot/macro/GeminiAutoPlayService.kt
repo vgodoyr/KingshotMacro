@@ -1,7 +1,6 @@
 package com.kingshot.macro
 
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -44,11 +43,7 @@ class GeminiAutoPlayService : Service() {
             addAction(MacroController.ACTION_GEMINI_START)
             addAction(MacroController.ACTION_GEMINI_STOP)
         }
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(commandReceiver, filter, 4)
-        } else {
-            registerReceiver(commandReceiver, filter)
-        }
+        registerReceiver(commandReceiver, filter)
         Log.d(TAG, "GeminiAutoPlayService created")
     }
 
@@ -191,43 +186,56 @@ class GeminiAutoPlayService : Service() {
 
     // ── Notification ─────────────────────────────────────────────────────
 
+    // NotificationChannel and the 2-arg Notification.Builder(ctx, channelId) were added in API 26.
+    // We compile against API 23, so we use reflection to call them at runtime (minSdk=26 guarantees they exist).
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= 26) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Kingshot Auto IA", NotificationManager.IMPORTANCE_LOW
-            ).apply { description = "Estado del modo automático con Gemini" }
-            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .createNotificationChannel(channel)
+        if (Build.VERSION.SDK_INT < 26) return
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channelCls = Class.forName("android.app.NotificationChannel")
+            val importanceLow = 2 // NotificationManager.IMPORTANCE_LOW
+            val ch = channelCls.getConstructor(
+                String::class.java, CharSequence::class.java, Int::class.javaPrimitiveType
+            ).newInstance(CHANNEL_ID, "Kingshot Auto IA", importanceLow)
+            channelCls.getMethod("setDescription", String::class.java)
+                .invoke(ch, "Estado del modo automático con Gemini")
+            nm.javaClass.getMethod("createNotificationChannel", channelCls).invoke(nm, ch)
+        } catch (e: Exception) {
+            Log.w(TAG, "createNotificationChannel failed: $e")
         }
     }
 
     private fun buildNotification(text: String): Notification {
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val flags = if (Build.VERSION.SDK_INT >= 23)
+        val piFlags = if (Build.VERSION.SDK_INT >= 23)
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         else PendingIntent.FLAG_UPDATE_CURRENT
-        val pi = PendingIntent.getActivity(this, 0, openIntent, flags)
+        val pi = PendingIntent.getActivity(this, 0,
+            Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
+            piFlags)
 
-        return if (Build.VERSION.SDK_INT >= 26) {
-            Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("Kingshot Auto IA")
-                .setContentText(text)
-                .setSmallIcon(android.R.drawable.ic_menu_manage)
-                .setContentIntent(pi)
-                .setOngoing(true)
-                .build()
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-                .setContentTitle("Kingshot Auto IA")
-                .setContentText(text)
-                .setSmallIcon(android.R.drawable.ic_menu_manage)
-                .setContentIntent(pi)
-                .setOngoing(true)
-                .build()
+        if (Build.VERSION.SDK_INT >= 26) {
+            try {
+                val cls = Class.forName("android.app.Notification\$Builder")
+                val builder = cls.getConstructor(Context::class.java, String::class.java)
+                    .newInstance(this, CHANNEL_ID)
+                cls.getMethod("setContentTitle", CharSequence::class.java).invoke(builder, "Kingshot Auto IA")
+                cls.getMethod("setContentText", CharSequence::class.java).invoke(builder, text as CharSequence)
+                cls.getMethod("setSmallIcon", Int::class.javaPrimitiveType).invoke(builder, android.R.drawable.ic_menu_manage)
+                cls.getMethod("setContentIntent", PendingIntent::class.java).invoke(builder, pi)
+                cls.getMethod("setOngoing", Boolean::class.javaPrimitiveType).invoke(builder, true)
+                return cls.getMethod("build").invoke(builder) as Notification
+            } catch (e: Exception) {
+                Log.w(TAG, "buildNotification reflection failed: $e")
+            }
         }
+        @Suppress("DEPRECATION")
+        return Notification.Builder(this)
+            .setContentTitle("Kingshot Auto IA")
+            .setContentText(text)
+            .setSmallIcon(android.R.drawable.ic_menu_manage)
+            .setContentIntent(pi)
+            .setOngoing(true)
+            .build()
     }
 
     private fun updateNotification(text: String) {
