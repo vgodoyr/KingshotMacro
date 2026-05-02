@@ -70,7 +70,7 @@ object MacroController {
 
     // Gemini settings
     fun getGeminiApiKey(ctx: Context): String =
-        getPrefs(ctx).getString("gemini_api_key", "") ?: ""
+        getPrefs(ctx).getString("gemini_api_key", "AIzaSyAbSeozeGz5ArBv7658D4AejdchfXjzhXs") ?: ""
     fun setGeminiApiKey(ctx: Context, key: String) =
         getPrefs(ctx).edit().putString("gemini_api_key", key).apply()
 
