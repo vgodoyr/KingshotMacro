@@ -89,6 +89,20 @@ class FloatingOverlayService : Service() {
         }
     }
 
+    /**
+     * Cuando el usuario cierra la app desde recientes, paramos el macro,
+     * cerramos el panel flotante y nos auto-destruimos. Así "cerrar la app
+     * cierra todo".
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        try {
+            sendBroadcast(Intent(MacroController.ACTION_STOP).apply { setPackage(packageName) })
+            sendBroadcast(Intent(MacroController.ACTION_GEMINI_STOP).apply { setPackage(packageName) })
+        } catch (_: Throwable) {}
+        stopSelf()
+    }
+
     // ── View construction ─────────────────────────────────────────────────
 
     private fun createFloatingView() {

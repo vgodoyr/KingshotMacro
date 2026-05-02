@@ -100,6 +100,23 @@ class MainActivity : Activity() {
         try { geminiLogReceiver?.let { unregisterReceiver(it) } } catch (_: Throwable) { /* ignored */ }
     }
 
+    /**
+     * Cuando el usuario cierra la app (back button o desde recientes), paramos
+     * todos los servicios y broadcasts. Así "cerrar la app" significa
+     * realmente cerrar todo, no dejar el panel flotante ni Auto-IA corriendo.
+     */
+    override fun onDestroy() {
+        if (isFinishing) {
+            try {
+                sendBroadcast(Intent(MacroController.ACTION_STOP).apply { setPackage(packageName) })
+                sendBroadcast(Intent(MacroController.ACTION_GEMINI_STOP).apply { setPackage(packageName) })
+                stopService(Intent(this, FloatingOverlayService::class.java))
+                stopService(Intent(this, GeminiAutoPlayService::class.java))
+            } catch (_: Throwable) {}
+        }
+        super.onDestroy()
+    }
+
     // ── Root layout: header + content area + bottom nav ──────────────────
 
     private fun buildRootLayout(): LinearLayout {

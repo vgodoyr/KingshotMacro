@@ -15,6 +15,7 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import java.lang.reflect.Proxy
 import java.util.concurrent.Executors
 
@@ -180,22 +181,33 @@ class KingshotAccessibilityService : AccessibilityService() {
     private fun pctY(p: Int) = (screenHeight * (p / 100f)).toInt().coerceIn(0, screenHeight - 1)
 
     // ── Built-in clan invitation logic ────────
+    // Flujo real del juego: tap en jugador → popup (Ver/Chat/Invitar) → tap "Invitar".
+    // Usamos el árbol de accesibilidad para encontrar y tocar el botón "Invitar"
+    // por texto, así no dependemos de coordenadas fijas — el popup aparece en
+    // posiciones distintas según el jugador.
 
     private fun executeClanInvitationStep() {
         val tapsBeforeScroll = MacroController.getTapsBeforeScroll(this)
 
+        // Paso 1: si hay popup con "Invitar" en pantalla, lo tocamos primero.
+        if (clickInvitarIfVisible()) {
+            scheduleNextStep(MacroController.getTapDelayMs(this))
+            return
+        }
+
+        // Paso 2: scroll cada N invitaciones para cargar más jugadores.
         if (clanTapCount > 0 && clanTapCount % tapsBeforeScroll == 0) {
-            // scroll up to load more
             val sx = (screenWidth * 0.5f).toInt()
             val sy1 = (screenHeight * 0.7f).toInt()
             val sy2 = (screenHeight * 0.3f).toInt()
             swipe(sx, sy1, sx, sy2, 300)
-            clanTapCount++          // skip a "step"; next iteration starts fresh column 0
+            clanTapCount++
             clanCurrentCol = 0
-            scheduleNextStep(1000)
+            scheduleNextStep(1200)
             return
         }
 
+        // Paso 3: tap en la siguiente tarjeta de jugador.
         val col1 = (screenWidth * MacroController.getCol1XPct(this)).toInt()
         val col2 = (screenWidth * MacroController.getCol2XPct(this)).toInt()
         val rowStart = (screenHeight * MacroController.getRowStartYPct(this)).toInt()
@@ -209,7 +221,74 @@ class KingshotAccessibilityService : AccessibilityService() {
         tap(x, y)
         clanCurrentCol = (clanCurrentCol + 1) % 2
         clanTapCount++
-        scheduleNextStep(MacroController.getTapDelayMs(this))
+
+        // Damos un poco más de tiempo para que aparezca el popup antes del próximo paso.
+        scheduleNextStep(MacroController.getTapDelayMs(this) + 300)
+    }
+
+    /**
+     * Busca un nodo en el árbol de accesibilidad cuyo texto contenga "Invitar"
+     * (mayúsculas/minúsculas y acentos ignorados). Si lo encuentra, lo toca y
+     * devuelve true. Útil para confirmar la invitación tras tap en jugador.
+     */
+    private fun clickInvitarIfVisible(): Boolean {
+        return try {
+            val root = rootInActiveWindow ?: return false
+            val target = findClickableByText(root, "invitar")
+                ?: findClickableByText(root, "invite")
+                ?: return false
+            tapNodeCenter(target)
+            true
+        } catch (e: Throwable) {
+            Log.e(TAG, "clickInvitarIfVisible error: ${e.message}")
+            false
+        }
+    }
+
+    private fun findClickableByText(root: AccessibilityNodeInfo, needle: String): AccessibilityNodeInfo? {
+        // Recorremos el árbol buscando el primer nodo cuyo text/contentDescription
+        // empiece con "needle" (case/acento insensible) y sea clickable o tenga
+        // ancestro clickable.
+        val n = needle.lowercase()
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.addLast(root)
+        while (stack.isNotEmpty()) {
+            val node = stack.removeLast()
+            val text = (node.text?.toString() ?: "").lowercase()
+            val desc = (node.contentDescription?.toString() ?: "").lowercase()
+            if (text.startsWith(n) || desc.startsWith(n) || text.contains(n) || desc.contains(n)) {
+                // Buscar ancestro clickable si este no lo es
+                var clickable: AccessibilityNodeInfo? = node
+                while (clickable != null && !clickable.isClickable) {
+                    clickable = clickable.parent
+                }
+                if (clickable != null) return clickable
+                return node // mejor algo que nada
+            }
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { stack.addLast(it) }
+            }
+        }
+        return null
+    }
+
+    private fun tapNodeCenter(node: AccessibilityNodeInfo) {
+        try {
+            // Primero intentar performAction(CLICK) — más fiable que coordenadas.
+            if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                Log.d(TAG, "Clicked '${node.text}' via ACTION_CLICK")
+                return
+            }
+            // Fallback: gesto en el centro del bounding box.
+            val rect = android.graphics.Rect()
+            node.getBoundsInScreen(rect)
+            if (rect.width() > 0 && rect.height() > 0) {
+                tap(rect.centerX(), rect.centerY())
+                Log.d(TAG, "Tapped '${node.text}' at ${rect.centerX()},${rect.centerY()}")
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "tapNodeCenter error: ${e.message}")
+        }
     }
 
     // ── Gesture dispatch (reflection-based for API 23 compile target) ──

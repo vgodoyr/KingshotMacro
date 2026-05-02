@@ -59,6 +59,12 @@ class GeminiAutoPlayService : Service() {
         MacroController.geminiRunning = false
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        stopLoop()
+        stopSelf()
+    }
+
     // ── Loop control ─────────────────────────────────────────────────────
 
     private fun startLoop() {
