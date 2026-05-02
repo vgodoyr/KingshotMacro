@@ -1,0 +1,7 @@
+build_tmp/
+*.class
+*.jar
+local.properties
+.gradle/
+.idea/
+*.iml
