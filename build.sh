@@ -91,11 +91,12 @@ cd "$PROJECT_DIR"
 echo "==> Zipaligning"
 "$ZIPALIGN" -f 4 "$BUILD/unsigned.apk" "$BUILD/aligned.apk"
 
-# ── 9. Generate debug keystore ────────────────
-if [ ! -f "$BUILD/debug.keystore" ]; then
-    echo "==> Generating debug keystore"
+# ── 9. Use persistent keystore (same key across all builds) ───────────────────
+KEYSTORE="$PROJECT_DIR/debug.keystore"
+if [ ! -f "$KEYSTORE" ]; then
+    echo "==> Generating persistent debug keystore"
     keytool -genkey -v \
-        -keystore "$BUILD/debug.keystore" \
+        -keystore "$KEYSTORE" \
         -alias androiddebugkey \
         -keyalg RSA -keysize 2048 \
         -validity 10000 \
@@ -108,7 +109,7 @@ fi
 # ── 10. Sign APK ──────────────────────────────
 echo "==> Signing APK"
 "$APKSIGNER" sign \
-    --ks "$BUILD/debug.keystore" \
+    --ks "$KEYSTORE" \
     --ks-pass pass:android \
     --key-pass pass:android \
     --out "$OUT/app-debug.apk" \
