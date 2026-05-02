@@ -62,6 +62,15 @@ class FloatingOverlayService : Service() {
                         geminiLogText.visibility = View.VISIBLE
                     }
                 }
+                MacroController.ACTION_TAP_FIRED -> {
+                    val n = intent.getIntExtra(MacroController.EXTRA_TAP_COUNT, 0)
+                    val x = intent.getIntExtra(MacroController.EXTRA_TAP_X, 0)
+                    val y = intent.getIntExtra(MacroController.EXTRA_TAP_Y, 0)
+                    val label = intent.getStringExtra(MacroController.EXTRA_TAP_LABEL) ?: ""
+                    if (::statusText.isInitialized) {
+                        statusText.text = "Taps: $n · ($x,$y)\n$label"
+                    }
+                }
             }
         }
     }
@@ -76,6 +85,7 @@ class FloatingOverlayService : Service() {
         val filter = IntentFilter().apply {
             addAction(MacroController.ACTION_STATUS)
             addAction(MacroController.ACTION_GEMINI_LOG)
+            addAction(MacroController.ACTION_TAP_FIRED)
         }
         registerReceiver(statusReceiver, filter)
     }

@@ -14,6 +14,11 @@ object MacroController {
     const val ACTION_GEMINI_START       = "com.kingshot.macro.GEMINI_START"
     const val ACTION_GEMINI_STOP        = "com.kingshot.macro.GEMINI_STOP"
     const val ACTION_GEMINI_LOG         = "com.kingshot.macro.GEMINI_LOG"
+    const val ACTION_TAP_FIRED          = "com.kingshot.macro.TAP_FIRED"
+    const val EXTRA_TAP_X               = "tap_x"
+    const val EXTRA_TAP_Y               = "tap_y"
+    const val EXTRA_TAP_LABEL           = "tap_label"
+    const val EXTRA_TAP_COUNT           = "tap_count"
 
     // ── Extras ───────────────────────────────────────────────────────────
     const val EXTRA_STATUS              = "status"

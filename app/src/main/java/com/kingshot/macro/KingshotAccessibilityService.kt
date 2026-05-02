@@ -71,6 +71,13 @@ class KingshotAccessibilityService : AccessibilityService() {
         }
         registerReceiver(commandReceiver, filter)
         Log.d(TAG, "AccessibilityService connected. Screen: ${screenWidth}x${screenHeight}")
+        try {
+            android.widget.Toast.makeText(
+                this,
+                "Accesibilidad OK ${screenWidth}x${screenHeight}",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        } catch (_: Throwable) {}
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
@@ -106,7 +113,14 @@ class KingshotAccessibilityService : AccessibilityService() {
         clanCurrentCol = 0
         MacroController.currentStatus = MacroController.STATUS_RUNNING
         broadcastStatus(MacroController.STATUS_RUNNING)
-        Log.d(TAG, "Macro $macroId started")
+        Log.d(TAG, "Macro $macroId started, screen=${screenWidth}x${screenHeight}")
+        try {
+            android.widget.Toast.makeText(
+                this,
+                "Macro '$macroId' iniciado",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        } catch (_: Throwable) {}
         scheduleNextStep(MacroController.getTapDelayMs(this))
     }
 
@@ -218,7 +232,7 @@ class KingshotAccessibilityService : AccessibilityService() {
         val x = if (clanCurrentCol == 0) col1 else col2
         val y = rowStart + row * rowH
 
-        tap(x, y)
+        tap(x, y, "player#$clanTapCount c=$clanCurrentCol r=$row")
         clanCurrentCol = (clanCurrentCol + 1) % 2
         clanTapCount++
 
@@ -277,14 +291,14 @@ class KingshotAccessibilityService : AccessibilityService() {
             // Primero intentar performAction(CLICK) — más fiable que coordenadas.
             if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
                 Log.d(TAG, "Clicked '${node.text}' via ACTION_CLICK")
+                broadcastTap(-1, -1, "ACTION_CLICK: ${node.text}")
                 return
             }
             // Fallback: gesto en el centro del bounding box.
             val rect = android.graphics.Rect()
             node.getBoundsInScreen(rect)
             if (rect.width() > 0 && rect.height() > 0) {
-                tap(rect.centerX(), rect.centerY())
-                Log.d(TAG, "Tapped '${node.text}' at ${rect.centerX()},${rect.centerY()}")
+                tap(rect.centerX(), rect.centerY(), "node:${node.text}")
             }
         } catch (e: Throwable) {
             Log.e(TAG, "tapNodeCenter error: ${e.message}")
@@ -293,22 +307,53 @@ class KingshotAccessibilityService : AccessibilityService() {
 
     // ── Gesture dispatch (reflection-based for API 23 compile target) ──
 
+    private var diagnosticTapCount = 0
+
     @SuppressLint("NewApi")
-    private fun tap(x: Int, y: Int) {
-        if (Build.VERSION.SDK_INT < 24) return
+    private fun tap(x: Int, y: Int, label: String = "tap") {
+        if (Build.VERSION.SDK_INT < 24) {
+            broadcastTap(x, y, "API<24 unsupported")
+            return
+        }
         try {
             val path = Path().apply { moveTo(x.toFloat(), y.toFloat()); lineTo(x.toFloat(), y.toFloat()) }
             dispatchPath(path, 0L, 50L)
-        } catch (e: Exception) { Log.e(TAG, "tap failed: ${e.message}") }
+            broadcastTap(x, y, label)
+            Log.d(TAG, "tap fired at ($x,$y) label=$label")
+        } catch (e: Throwable) {
+            Log.e(TAG, "tap failed at ($x,$y): ${e.message}", e)
+            broadcastTap(x, y, "FAIL: ${e.javaClass.simpleName}")
+        }
     }
 
     @SuppressLint("NewApi")
     private fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long) {
-        if (Build.VERSION.SDK_INT < 24) return
+        if (Build.VERSION.SDK_INT < 24) {
+            broadcastTap(x1, y1, "swipe API<24")
+            return
+        }
         try {
             val path = Path().apply { moveTo(x1.toFloat(), y1.toFloat()); lineTo(x2.toFloat(), y2.toFloat()) }
             dispatchPath(path, 0L, durationMs)
-        } catch (e: Exception) { Log.e(TAG, "swipe failed: ${e.message}") }
+            broadcastTap(x1, y1, "swipe→${x2},${y2}")
+            Log.d(TAG, "swipe fired ($x1,$y1)→($x2,$y2)")
+        } catch (e: Throwable) {
+            Log.e(TAG, "swipe failed: ${e.message}", e)
+            broadcastTap(x1, y1, "swipe FAIL")
+        }
+    }
+
+    private fun broadcastTap(x: Int, y: Int, label: String) {
+        diagnosticTapCount++
+        try {
+            sendBroadcast(Intent(MacroController.ACTION_TAP_FIRED).apply {
+                setPackage(packageName)
+                putExtra(MacroController.EXTRA_TAP_X, x)
+                putExtra(MacroController.EXTRA_TAP_Y, y)
+                putExtra(MacroController.EXTRA_TAP_LABEL, label)
+                putExtra(MacroController.EXTRA_TAP_COUNT, diagnosticTapCount)
+            })
+        } catch (_: Throwable) {}
     }
 
     private fun dispatchPath(path: Path, startTime: Long, duration: Long) {
