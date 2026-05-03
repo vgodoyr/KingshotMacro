@@ -124,7 +124,14 @@ class FloatingOverlayService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            // NOT_FOCUSABLE: el panel no roba focus al juego.
+            // NOT_TOUCH_MODAL: touches FUERA del panel pasan a la app de abajo
+            //                  (sin esto el panel puede absorber eventos de toda la pantalla,
+            //                  bloqueando el dispatchGesture del macro).
+            // LAYOUT_IN_SCREEN: el panel se ubica respecto a la pantalla completa.
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -439,6 +446,10 @@ class FloatingOverlayService : Service() {
                     btnStartPause.text = "⏸ Pause"
                     btnStartPause.setBackgroundColor(Color.argb(200, 200, 140, 0))
                 }
+                // Auto-contraer el panel cuando el macro corre, para minimizar
+                // el área que el panel cubre. Algunos juegos tienen anti-tapjacking
+                // que rechaza synthetic touches si hay overlay encima.
+                if (isExpanded) collapsePanel()
             }
             MacroController.STATUS_PAUSED -> {
                 dotColor = Color.YELLOW

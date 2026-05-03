@@ -43,8 +43,8 @@ echo "==> Linking resources"
 "$AAPT2" link \
     -I "$ANDROID_JAR" \
     --manifest "$SRC/AndroidManifest.xml" \
-    --version-code 10 \
-    --version-name "2.8-tap-fix" \
+    --version-code 11 \
+    --version-name "2.9-touch-modal" \
     -o "$BUILD/resources.ap_" \
     "$BUILD/compiled_res/"*.flat \
     --java "$BUILD/gen"
