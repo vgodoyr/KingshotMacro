@@ -283,10 +283,11 @@ class MainActivity : Activity() {
             text = "▶  Iniciar panel flotante"
             setTextColor(UiTheme.TEXT_PRIMARY)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            background = UiTheme.gradient(this@MainActivity, UiTheme.SUCCESS, UiTheme.SUCCESS_DARK, 14)
+            background = UiTheme.gradient(this@MainActivity, UiTheme.SUCCESS, UiTheme.SUCCESS_DARK, 999)
             stateListAnimator = null
+            setAllCaps(false)
             textSize = 15f
-            setPadding(0, dpToPx(14), 0, dpToPx(14))
+            setPadding(0, dpToPx(16), 0, dpToPx(16))
             setOnClickListener { launchOverlay() }
         }
         root.addView(btnLaunchOverlay, fullWidthBtn())
@@ -331,9 +332,10 @@ class MainActivity : Activity() {
             text = "Conceder"; textSize = 11f; tag = "btn"
             setTextColor(UiTheme.TEXT_PRIMARY)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            background = UiTheme.gradient(this@MainActivity, UiTheme.PRIMARY, UiTheme.PRIMARY_DARK, 10)
+            background = UiTheme.gradient(this@MainActivity, UiTheme.PRIMARY, UiTheme.PRIMARY_DARK, 999)
             stateListAnimator = null
-            layoutParams = LinearLayout.LayoutParams(dpToPx(86), dpToPx(36))
+            setAllCaps(false)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(94), dpToPx(36))
         }
         card.addView(texts, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         card.addView(tvStatus); card.addView(btn)
@@ -377,12 +379,16 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
         val btnNew = Button(this).apply {
-            text = "+ Nuevo"; textSize = 11f
-            setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#238636"))
-            setPadding(16, 8, 16, 8)
+            text = "＋ Nuevo"; textSize = 12f
+            setTextColor(UiTheme.TEXT_PRIMARY)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = UiTheme.gradient(this@MainActivity, UiTheme.SUCCESS, UiTheme.SUCCESS_DARK, 999)
+            stateListAnimator = null
+            setAllCaps(false)
+            setPadding(dpToPx(20), dpToPx(8), dpToPx(20), dpToPx(8))
             setOnClickListener { startActivity(Intent(this@MainActivity, MacroRecorderActivity::class.java)) }
         }
-        header.addView(btnNew, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(36)))
+        header.addView(btnNew, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(38)))
         root.addView(header)
 
         root.addView(divider())
@@ -447,9 +453,14 @@ class MainActivity : Activity() {
 
         val btnSelect = Button(this).apply {
             text = if (isActive) "✓ Activo" else "▶ Usar"
-            textSize = 10f; setTextColor(Color.WHITE)
-            setBackgroundColor(if (isActive) Color.parseColor("#238636") else Color.parseColor("#1F6FEB"))
-            setPadding(12, 4, 12, 4)
+            textSize = 11f; setTextColor(UiTheme.TEXT_PRIMARY)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = if (isActive)
+                UiTheme.gradient(this@MainActivity, UiTheme.SUCCESS, UiTheme.SUCCESS_DARK, 999)
+            else
+                UiTheme.gradient(this@MainActivity, UiTheme.PRIMARY, UiTheme.PRIMARY_DARK, 999)
+            stateListAnimator = null
+            setAllCaps(false)
             setOnClickListener {
                 MacroController.setActiveMacroId(this@MainActivity, macro.id)
                 refreshMacrosTab()
@@ -457,7 +468,7 @@ class MainActivity : Activity() {
                 Toast.makeText(this@MainActivity, "'${macro.name}' seleccionado", Toast.LENGTH_SHORT).show()
             }
         }
-        topRow.addView(btnSelect, LinearLayout.LayoutParams(dpToPx(72), dpToPx(34)))
+        topRow.addView(btnSelect, LinearLayout.LayoutParams(dpToPx(86), dpToPx(36)))
         card.addView(topRow)
 
         val descView = TextView(this).apply {
@@ -509,8 +520,12 @@ class MainActivity : Activity() {
         ).apply { setMargins(0, 4, 0, 4) })
 
         val btnSaveKey = Button(this).apply {
-            text = "Guardar clave"; textSize = 11f; setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#1F6FEB"))
+            text = "Guardar clave"; textSize = 12f; setTextColor(UiTheme.TEXT_PRIMARY)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = UiTheme.gradient(this@MainActivity, UiTheme.PRIMARY, UiTheme.PRIMARY_DARK, 999)
+            stateListAnimator = null
+            setAllCaps(false)
+            setPadding(dpToPx(22), dpToPx(10), dpToPx(22), dpToPx(10))
             setOnClickListener {
                 MacroController.setGeminiApiKey(this@MainActivity, etApiKey.text.toString().trim())
                 Toast.makeText(this@MainActivity, "Clave guardada", Toast.LENGTH_SHORT).show()
@@ -537,8 +552,11 @@ class MainActivity : Activity() {
         }
         modeRow.addView(tvModeSelector, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         val btnMode = Button(this).apply {
-            text = "Cambiar"; textSize = 11f; setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#30363D"))
+            text = "Cambiar"; textSize = 12f; setTextColor(UiTheme.TEXT_PRIMARY)
+            background = UiTheme.roundedStroke(this@MainActivity, UiTheme.BG_SURFACE_HI, 0xFF334155.toInt(), 999, 1)
+            stateListAnimator = null
+            setAllCaps(false)
+            setPadding(dpToPx(18), dpToPx(8), dpToPx(18), dpToPx(8))
             setOnClickListener {
                 val labels = modes.map { it.second }.toTypedArray()
                 AlertDialog.Builder(this@MainActivity)
@@ -593,8 +611,12 @@ class MainActivity : Activity() {
         ).apply { setMargins(0, 8, 0, 8) })
 
         btnGeminiToggle = Button(this).apply {
-            text = "▶  INICIAR AUTO IA"; textSize = 16f; setTextColor(Color.WHITE)
-            setBackgroundColor(Color.parseColor("#238636"))
+            text = "▶  Iniciar Auto IA"; textSize = 15f; setTextColor(UiTheme.TEXT_PRIMARY)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = UiTheme.gradient(this@MainActivity, UiTheme.SUCCESS, UiTheme.SUCCESS_DARK, 999)
+            stateListAnimator = null
+            setAllCaps(false)
+            setPadding(0, dpToPx(16), 0, dpToPx(16))
             setOnClickListener { toggleGeminiAutoPlay() }
         }
         root.addView(btnGeminiToggle, fullWidthBtn())
@@ -620,9 +642,11 @@ class MainActivity : Activity() {
     private fun refreshAutoIATab() {
         val running = MacroController.geminiRunning
         if (::btnGeminiToggle.isInitialized) {
-            btnGeminiToggle.text = if (running) "⏹  DETENER AUTO IA" else "▶  INICIAR AUTO IA"
-            btnGeminiToggle.setBackgroundColor(
-                if (running) Color.parseColor("#DA3633") else Color.parseColor("#238636"))
+            btnGeminiToggle.text = if (running) "⏹  Detener Auto IA" else "▶  Iniciar Auto IA"
+            btnGeminiToggle.background = if (running)
+                UiTheme.gradient(this@MainActivity, UiTheme.DANGER, UiTheme.DANGER_DARK, 999)
+            else
+                UiTheme.gradient(this@MainActivity, UiTheme.SUCCESS, UiTheme.SUCCESS_DARK, 999)
         }
         if (::tvGeminiStatus.isInitialized) {
             tvGeminiStatus.text = if (running) "Estado: ● Activo" else "Estado: Inactivo"
@@ -691,8 +715,12 @@ class MainActivity : Activity() {
         }
         root.addView(divider())
         val btnReset = Button(this).apply {
-            text = "Restablecer valores por defecto"; textSize = 12f
-            setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#21262D"))
+            text = "Restablecer valores por defecto"; textSize = 13f
+            setTextColor(UiTheme.TEXT_PRIMARY)
+            background = UiTheme.roundedStroke(this@MainActivity, UiTheme.BG_SURFACE_HI, 0xFF334155.toInt(), 999, 1)
+            stateListAnimator = null
+            setAllCaps(false)
+            setPadding(0, dpToPx(14), 0, dpToPx(14))
             setOnClickListener {
                 MacroController.setTapDelayMs(this@MainActivity, 1500L)
                 MacroController.setTapsBeforeScroll(this@MainActivity, 8)

@@ -354,10 +354,15 @@ class KingshotAccessibilityService : AccessibilityService() {
             return
         }
         try {
-            val path = Path().apply { moveTo(x.toFloat(), y.toFloat()); lineTo(x.toFloat(), y.toFloat()) }
-            dispatchPath(path, 0L, 50L)
-            broadcastTap(x, y, label)
-            Log.d(TAG, "tap fired at ($x,$y) label=$label")
+            // Just moveTo. Algunas versiones de ART no aceptan strokes
+            // degenerados (moveTo+lineTo al mismo punto). Solo moveTo + duration
+            // se trata como un tap puntual y es lo que dispatchGesture espera.
+            val path = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
+            // 120ms — dura más que un click humano mínimo, aumenta probabilidad
+            // de que juegos con detección estricta lo registren.
+            val ok = dispatchPath(path, 0L, 120L)
+            broadcastTap(x, y, if (ok) label else "DISPATCH RETURNED FALSE")
+            Log.d(TAG, "tap fired at ($x,$y) label=$label dispatchOk=$ok")
         } catch (e: Throwable) {
             Log.e(TAG, "tap failed at ($x,$y): ${e.message}", e)
             broadcastTap(x, y, "FAIL: ${e.javaClass.simpleName}")
@@ -372,9 +377,9 @@ class KingshotAccessibilityService : AccessibilityService() {
         }
         try {
             val path = Path().apply { moveTo(x1.toFloat(), y1.toFloat()); lineTo(x2.toFloat(), y2.toFloat()) }
-            dispatchPath(path, 0L, durationMs)
-            broadcastTap(x1, y1, "swipe→${x2},${y2}")
-            Log.d(TAG, "swipe fired ($x1,$y1)→($x2,$y2)")
+            val ok = dispatchPath(path, 0L, durationMs)
+            broadcastTap(x1, y1, "swipe→${x2},${y2} ok=$ok")
+            Log.d(TAG, "swipe fired ($x1,$y1)→($x2,$y2) ok=$ok")
         } catch (e: Throwable) {
             Log.e(TAG, "swipe failed: ${e.message}", e)
             broadcastTap(x1, y1, "swipe FAIL")
@@ -394,7 +399,7 @@ class KingshotAccessibilityService : AccessibilityService() {
         } catch (_: Throwable) {}
     }
 
-    private fun dispatchPath(path: Path, startTime: Long, duration: Long) {
+    private fun dispatchPath(path: Path, startTime: Long, duration: Long): Boolean {
         val strokeClass = Class.forName("android.accessibilityservice.GestureDescription\$StrokeDescription")
         val stroke = strokeClass.getConstructor(
             Path::class.java, Long::class.javaPrimitiveType, Long::class.javaPrimitiveType
@@ -406,15 +411,13 @@ class KingshotAccessibilityService : AccessibilityService() {
         val gestureDesc = builderClass.getMethod("build").invoke(builder)
 
         val gestureDescClass = Class.forName("android.accessibilityservice.GestureDescription")
-        // GestureResultCallback es inner class de AccessibilityService, NO de GestureDescription.
-        // Antes el class name era incorrecto y dispatchPath siempre fallaba con
-        // ClassNotFoundException — silenciosamente desde el inicio.
         val callbackClass = Class.forName("android.accessibilityservice.AccessibilityService\$GestureResultCallback")
         val dispatchMethod = AccessibilityService::class.java.getMethod(
             "dispatchGesture", gestureDescClass, callbackClass, Handler::class.java
         )
-        val ok = dispatchMethod.invoke(this, gestureDesc, null, null) as? Boolean
-        if (ok != true) Log.w(TAG, "dispatchGesture returned $ok")
+        val ok = dispatchMethod.invoke(this, gestureDesc, null, null) as? Boolean ?: false
+        if (!ok) Log.w(TAG, "dispatchGesture returned false")
+        return ok
     }
 
     // ── Screenshot capture (API 30+ via reflection) ──

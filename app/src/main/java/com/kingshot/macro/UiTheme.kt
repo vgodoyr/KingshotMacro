@@ -85,14 +85,18 @@ object UiTheme {
         setPadding(pad, pad, pad, pad)
     }
 
+    // PILL_RADIUS = ridiculously high → siempre cápsula independientemente de la altura.
+    private const val PILL_RADIUS = 999
+
     fun primaryButton(ctx: Context, label: String, onClick: () -> Unit): Button = Button(ctx).apply {
         text = label
         textSize = 14f
         setTextColor(TEXT_PRIMARY)
         typeface = Typeface.DEFAULT_BOLD
-        background = ripple(gradient(ctx, PRIMARY, PRIMARY_DARK, 14))
-        setPadding(dp(ctx, 24), dp(ctx, 14), dp(ctx, 24), dp(ctx, 14))
+        background = ripple(gradient(ctx, PRIMARY, PRIMARY_DARK, PILL_RADIUS))
+        setPadding(dp(ctx, 26), dp(ctx, 14), dp(ctx, 26), dp(ctx, 14))
         stateListAnimator = null
+        setAllCaps(false)
         setOnClickListener { onClick() }
     }
 
@@ -101,9 +105,10 @@ object UiTheme {
         textSize = 14f
         setTextColor(TEXT_PRIMARY)
         typeface = Typeface.DEFAULT_BOLD
-        background = ripple(gradient(ctx, SUCCESS, SUCCESS_DARK, 14))
-        setPadding(dp(ctx, 24), dp(ctx, 14), dp(ctx, 24), dp(ctx, 14))
+        background = ripple(gradient(ctx, SUCCESS, SUCCESS_DARK, PILL_RADIUS))
+        setPadding(dp(ctx, 26), dp(ctx, 14), dp(ctx, 26), dp(ctx, 14))
         stateListAnimator = null
+        setAllCaps(false)
         setOnClickListener { onClick() }
     }
 
@@ -111,9 +116,10 @@ object UiTheme {
         text = label
         textSize = 13f
         setTextColor(TEXT_PRIMARY)
-        background = ripple(roundedStroke(ctx, BG_SURFACE_HI, 0xFF334155.toInt(), 12, 1))
-        setPadding(dp(ctx, 18), dp(ctx, 10), dp(ctx, 18), dp(ctx, 10))
+        background = ripple(roundedStroke(ctx, BG_SURFACE_HI, 0xFF334155.toInt(), PILL_RADIUS, 1))
+        setPadding(dp(ctx, 22), dp(ctx, 10), dp(ctx, 22), dp(ctx, 10))
         stateListAnimator = null
+        setAllCaps(false)
         setOnClickListener { onClick() }
     }
 
@@ -122,9 +128,10 @@ object UiTheme {
         textSize = 13f
         setTextColor(TEXT_PRIMARY)
         typeface = Typeface.DEFAULT_BOLD
-        background = ripple(gradient(ctx, DANGER, DANGER_DARK, 12))
-        setPadding(dp(ctx, 18), dp(ctx, 10), dp(ctx, 18), dp(ctx, 10))
+        background = ripple(gradient(ctx, DANGER, DANGER_DARK, PILL_RADIUS))
+        setPadding(dp(ctx, 22), dp(ctx, 10), dp(ctx, 22), dp(ctx, 10))
         stateListAnimator = null
+        setAllCaps(false)
         setOnClickListener { onClick() }
     }
 

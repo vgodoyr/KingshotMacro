@@ -175,16 +175,28 @@ class FloatingOverlayService : Service() {
         root.setOnTouchListener(dragListener)
         floatingView = root
 
-        attachedViaAccessibility = if (accService != null) {
-            accService.attachOverlay(floatingView, params)
+        attachedViaAccessibility = false
+        var addedFallback = false
+        if (accService != null) {
+            attachedViaAccessibility = accService.attachOverlay(floatingView, params)
+            if (!attachedViaAccessibility) {
+                // Si TYPE_ACCESSIBILITY_OVERLAY falló, fallback a TYPE_APPLICATION_OVERLAY.
+                @Suppress("DEPRECATION")
+                params.type = if (Build.VERSION.SDK_INT >= 26) 2038 else WindowManager.LayoutParams.TYPE_PHONE
+                try { windowManager.addView(floatingView, params); addedFallback = true }
+                catch (e: Throwable) { Log.e(TAG, "fallback addView failed: ${e.message}") }
+            }
         } else {
-            try { windowManager.addView(floatingView, params); false }
-            catch (e: Throwable) { Log.e(TAG, "addView fallback failed: ${e.message}"); false }
+            try { windowManager.addView(floatingView, params); addedFallback = true }
+            catch (e: Throwable) { Log.e(TAG, "addView (no acc) failed: ${e.message}") }
         }
-        if (!attachedViaAccessibility && accService == null) {
-            Log.w(TAG, "Overlay attached as TYPE_APPLICATION_OVERLAY (sin acc service) — anti-tapjacking puede bloquear taps")
+        val typeStr = when {
+            attachedViaAccessibility -> "ACCESSIBILITY_OVERLAY ✓ anti-tapjacking OFF"
+            addedFallback -> "APPLICATION_OVERLAY ⚠ puede bloquear taps"
+            else -> "FALLO al añadir panel"
         }
-        Log.d(TAG, "Floating overlay created (acc=$attachedViaAccessibility, type=$overlayType)")
+        Log.d(TAG, "Floating overlay created → $typeStr")
+        try { android.widget.Toast.makeText(this, "Panel: $typeStr", android.widget.Toast.LENGTH_LONG).show() } catch (_: Throwable) {}
     }
 
     private fun makeRoundedDrawable(color: Int, radiusPx: Float): android.graphics.drawable.GradientDrawable {
