@@ -368,11 +368,15 @@ class KingshotAccessibilityService : AccessibilityService() {
         val gestureDesc = builderClass.getMethod("build").invoke(builder)
 
         val gestureDescClass = Class.forName("android.accessibilityservice.GestureDescription")
-        val callbackClass = Class.forName("android.accessibilityservice.GestureDescription\$GestureResultCallback")
+        // GestureResultCallback es inner class de AccessibilityService, NO de GestureDescription.
+        // Antes el class name era incorrecto y dispatchPath siempre fallaba con
+        // ClassNotFoundException — silenciosamente desde el inicio.
+        val callbackClass = Class.forName("android.accessibilityservice.AccessibilityService\$GestureResultCallback")
         val dispatchMethod = AccessibilityService::class.java.getMethod(
             "dispatchGesture", gestureDescClass, callbackClass, Handler::class.java
         )
-        dispatchMethod.invoke(this, gestureDesc, null, null)
+        val ok = dispatchMethod.invoke(this, gestureDesc, null, null) as? Boolean
+        if (ok != true) Log.w(TAG, "dispatchGesture returned $ok")
     }
 
     // ── Screenshot capture (API 30+ via reflection) ──

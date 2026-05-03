@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.kingshot.macro"
-    android:versionCode="9"
-    android:versionName="2.7-diagnostic">
+    android:versionCode="10"
+    android:versionName="2.8-tap-fix">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
