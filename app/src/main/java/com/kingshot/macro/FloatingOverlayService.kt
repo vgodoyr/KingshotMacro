@@ -95,8 +95,21 @@ class FloatingOverlayService : Service() {
         try { unregisterReceiver(statusReceiver) } catch (e: Exception) { /* ignored */ }
         dismissMacroPopup()
         if (::floatingView.isInitialized) {
-            try { windowManager.removeView(floatingView) } catch (e: Exception) { /* ignored */ }
+            try {
+                val acc = MacroController.instance
+                if (attachedViaAccessibility && acc != null) acc.detachOverlay(floatingView)
+                else windowManager.removeView(floatingView)
+            } catch (e: Exception) { /* ignored */ }
         }
+    }
+
+    private fun updateLayoutParams() {
+        if (!::floatingView.isInitialized) return
+        try {
+            val acc = MacroController.instance
+            if (attachedViaAccessibility && acc != null) acc.updateOverlayLayout(floatingView, params)
+            else windowManager.updateViewLayout(floatingView, params)
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -115,20 +128,27 @@ class FloatingOverlayService : Service() {
 
     // ── View construction ─────────────────────────────────────────────────
 
+    // true cuando el overlay fue añadido por el AccessibilityService
+    // (TYPE_ACCESSIBILITY_OVERLAY) y debe quitarse a través suyo también.
+    private var attachedViaAccessibility = false
+
     private fun createFloatingView() {
+        // Preferimos TYPE_ACCESSIBILITY_OVERLAY (2032) cuando el servicio
+        // de accesibilidad está conectado: ese tipo NO marca los touches
+        // del juego como obscured, así que dispatchGesture sí funciona en
+        // juegos con anti-tapjacking.
+        val accService = MacroController.instance
         @Suppress("DEPRECATION")
-        val overlayType = if (Build.VERSION.SDK_INT >= 26) 2038
-        else WindowManager.LayoutParams.TYPE_PHONE
+        val overlayType = when {
+            accService != null -> WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+            Build.VERSION.SDK_INT >= 26 -> 2038 // TYPE_APPLICATION_OVERLAY
+            else -> WindowManager.LayoutParams.TYPE_PHONE
+        }
 
         params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType,
-            // NOT_FOCUSABLE: el panel no roba focus al juego.
-            // NOT_TOUCH_MODAL: touches FUERA del panel pasan a la app de abajo
-            //                  (sin esto el panel puede absorber eventos de toda la pantalla,
-            //                  bloqueando el dispatchGesture del macro).
-            // LAYOUT_IN_SCREEN: el panel se ubica respecto a la pantalla completa.
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                 or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                 or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -141,8 +161,8 @@ class FloatingOverlayService : Service() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.argb(160, 15, 15, 30))
-            setPadding(10, 8, 10, 8)
+            background = makeRoundedDrawable(Color.argb(220, 18, 22, 38), dp(14).toFloat())
+            setPadding(dp(12), dp(10), dp(12), dp(10))
         }
 
         collapsedView = buildCollapsedView()
@@ -154,8 +174,25 @@ class FloatingOverlayService : Service() {
 
         root.setOnTouchListener(dragListener)
         floatingView = root
-        windowManager.addView(floatingView, params)
-        Log.d(TAG, "Floating overlay created")
+
+        attachedViaAccessibility = if (accService != null) {
+            accService.attachOverlay(floatingView, params)
+        } else {
+            try { windowManager.addView(floatingView, params); false }
+            catch (e: Throwable) { Log.e(TAG, "addView fallback failed: ${e.message}"); false }
+        }
+        if (!attachedViaAccessibility && accService == null) {
+            Log.w(TAG, "Overlay attached as TYPE_APPLICATION_OVERLAY (sin acc service) — anti-tapjacking puede bloquear taps")
+        }
+        Log.d(TAG, "Floating overlay created (acc=$attachedViaAccessibility, type=$overlayType)")
+    }
+
+    private fun makeRoundedDrawable(color: Int, radiusPx: Float): android.graphics.drawable.GradientDrawable {
+        return android.graphics.drawable.GradientDrawable().apply {
+            setShape(android.graphics.drawable.GradientDrawable.RECTANGLE)
+            setCornerRadius(radiusPx)
+            setColor(color)
+        }
     }
 
     private fun buildCollapsedView(): LinearLayout {
@@ -325,7 +362,7 @@ class FloatingOverlayService : Service() {
                 if (dragMoved) {
                     params.x = dragInitialX + dx
                     params.y = dragInitialY + dy
-                    windowManager.updateViewLayout(floatingView, params)
+                    updateLayoutParams()
                 }
                 dragMoved
             }
@@ -355,14 +392,20 @@ class FloatingOverlayService : Service() {
         dismissMacroPopup()
         val macros = MacroLibrary.getAllMacros(this)
 
+        val acc = MacroController.instance
         @Suppress("DEPRECATION")
-        val overlayType = if (Build.VERSION.SDK_INT >= 26) 2038 else WindowManager.LayoutParams.TYPE_PHONE
+        val overlayType = when {
+            acc != null -> WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+            Build.VERSION.SDK_INT >= 26 -> 2038
+            else -> WindowManager.LayoutParams.TYPE_PHONE
+        }
 
         val popupParams = WindowManager.LayoutParams(
             dp(220),
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -372,8 +415,8 @@ class FloatingOverlayService : Service() {
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.argb(245, 15, 15, 30))
-            setPadding(dp(6), dp(6), dp(6), dp(6))
+            background = makeRoundedDrawable(Color.argb(245, 18, 22, 38), dp(12).toFloat())
+            setPadding(dp(8), dp(8), dp(8), dp(8))
         }
 
         val header = TextView(this).apply {
@@ -411,12 +454,17 @@ class FloatingOverlayService : Service() {
         container.addView(closeItem)
 
         macroPopupView = container
-        windowManager.addView(container, popupParams)
+        if (acc != null) acc.attachOverlay(container, popupParams)
+        else try { windowManager.addView(container, popupParams) } catch (_: Throwable) {}
     }
 
     private fun dismissMacroPopup() {
-        macroPopupView?.let {
-            try { windowManager.removeView(it) } catch (e: Exception) { /* ignored */ }
+        macroPopupView?.let { v ->
+            val acc = MacroController.instance
+            try {
+                if (acc != null) acc.detachOverlay(v)
+                else windowManager.removeView(v)
+            } catch (e: Exception) { /* ignored */ }
             macroPopupView = null
         }
     }

@@ -14,6 +14,7 @@ import android.os.Looper
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
+import android.view.View
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import java.lang.reflect.Proxy
@@ -101,6 +102,43 @@ class KingshotAccessibilityService : AccessibilityService() {
 
     fun getScreenWidth() = screenWidth
     fun getScreenHeight() = screenHeight
+
+    // ── Overlay management ───────────────────────────────────────────────
+    // Permite a otros servicios añadir overlays de TYPE_ACCESSIBILITY_OVERLAY,
+    // un tipo de ventana que SOLO puede ser creado por servicios de
+    // accesibilidad y que NO marca los touch events del SO como "obscured".
+    // Esto evita el anti-tapjacking de juegos que rechazan synthetic touches
+    // pasando por encima de overlays normales (TYPE_APPLICATION_OVERLAY).
+
+    fun attachOverlay(view: View, params: WindowManager.LayoutParams): Boolean {
+        return try {
+            val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            wm.addView(view, params)
+            Log.d(TAG, "Overlay attached as TYPE_ACCESSIBILITY_OVERLAY")
+            true
+        } catch (e: Throwable) {
+            Log.e(TAG, "attachOverlay failed: ${e.message}", e)
+            false
+        }
+    }
+
+    fun detachOverlay(view: View) {
+        try {
+            val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            wm.removeView(view)
+        } catch (e: Throwable) {
+            Log.e(TAG, "detachOverlay failed: ${e.message}", e)
+        }
+    }
+
+    fun updateOverlayLayout(view: View, params: WindowManager.LayoutParams) {
+        try {
+            val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            wm.updateViewLayout(view, params)
+        } catch (e: Throwable) {
+            Log.e(TAG, "updateOverlayLayout failed: ${e.message}", e)
+        }
+    }
 
     // ── Macro lifecycle ───────────────────────
 

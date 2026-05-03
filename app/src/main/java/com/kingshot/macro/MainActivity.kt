@@ -122,28 +122,54 @@ class MainActivity : Activity() {
     private fun buildRootLayout(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#0D1117"))
+            setBackgroundColor(UiTheme.BG_DEEP)
         }
 
-        // Header
+        // Header con gradiente y subtítulo
         val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor("#161B22"))
-            setPadding(20, dpToPx(12), 20, dpToPx(12))
-            setGravity(Gravity.CENTER_VERTICAL)
+            orientation = LinearLayout.VERTICAL
+            background = UiTheme.gradient(
+                this@MainActivity,
+                0xFF1A1F36.toInt(),
+                0xFF0F1422.toInt(),
+                0,
+                vertical = true
+            )
+            setPadding(dpToPx(20), dpToPx(18), dpToPx(20), dpToPx(16))
         }
         val headerTitle = TextView(this).apply {
-            text = "⚔ Kingshot Macro"
-            textSize = 18f; setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            text = "⚔  Kingshot Macro"
+            textSize = 22f
+            setTextColor(UiTheme.TEXT_PRIMARY)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            letterSpacing = 0.02f
+        }
+        val headerSub = TextView(this).apply {
+            text = "Automatización inteligente para Kingshot"
+            textSize = 12f
+            setTextColor(UiTheme.TEXT_SECONDARY)
+            setPadding(0, dpToPx(2), 0, 0)
         }
         header.addView(headerTitle)
+        header.addView(headerSub)
         root.addView(header, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
+        // Línea de acento bajo el header
+        val accentLine = View(this).apply {
+            background = UiTheme.gradient(
+                this@MainActivity,
+                UiTheme.PRIMARY,
+                UiTheme.ACCENT,
+                0
+            )
+        }
+        root.addView(accentLine, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(2)))
+
         // Content area
         val contentFrame = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#0D1117"))
+            setBackgroundColor(UiTheme.BG_DEEP)
         }
         tabContents = arrayOf(buildTabHome(), buildTabMacros(), buildTabAutoIA(), buildTabSettings())
         tabContents.forEach { v ->
@@ -155,23 +181,38 @@ class MainActivity : Activity() {
         root.addView(contentFrame, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        // Bottom nav bar
+        // Bottom nav bar premium con indicador
         val navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor("#161B22"))
+            background = UiTheme.gradient(
+                this@MainActivity,
+                0xFF131826.toInt(),
+                0xFF0A0E1A.toInt(),
+                0,
+                vertical = true
+            )
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(8))
         }
-        val tabLabels = arrayOf("🏠 Inicio", "🎮 Macros", "🤖 Auto IA", "⚙ Ajustes")
+        val tabLabels = arrayOf("Inicio", "Macros", "Auto IA", "Ajustes")
+        val tabIcons  = arrayOf("⌂", "▶", "✦", "⚙")
         tabButtons = Array(4) { i ->
             Button(this).apply {
-                text = tabLabels[i]; textSize = 11f
-                setTextColor(if (i == 0) Color.parseColor("#58A6FF") else Color.GRAY)
-                setBackgroundColor(Color.TRANSPARENT)
+                text = "${tabIcons[i]}\n${tabLabels[i]}"
+                textSize = 11f
+                setTextColor(if (i == 0) UiTheme.ACCENT else UiTheme.TEXT_MUTED)
+                background = if (i == 0)
+                    UiTheme.roundedDp(this@MainActivity, 0x1A06B6D4, 12)
+                else
+                    UiTheme.roundedDp(this@MainActivity, Color.TRANSPARENT, 12)
                 setPadding(0, dpToPx(8), 0, dpToPx(8))
+                stateListAnimator = null
                 setOnClickListener { switchTab(i) }
             }
         }
         tabButtons.forEach { btn ->
-            navBar.addView(btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            navBar.addView(btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(dpToPx(2), 0, dpToPx(2), 0)
+            })
         }
         root.addView(navBar, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
@@ -183,7 +224,10 @@ class MainActivity : Activity() {
         currentTab = index
         tabContents.forEachIndexed { i, v -> v.visibility = if (i == index) View.VISIBLE else View.GONE }
         tabButtons.forEachIndexed { i, b ->
-            b.setTextColor(if (i == index) Color.parseColor("#58A6FF") else Color.GRAY)
+            val active = i == index
+            b.setTextColor(if (active) UiTheme.ACCENT else UiTheme.TEXT_MUTED)
+            b.background = if (active) UiTheme.roundedDp(this, 0x1A06B6D4, 12)
+                           else UiTheme.roundedDp(this, Color.TRANSPARENT, 12)
         }
         refreshTabContent()
     }
@@ -236,9 +280,13 @@ class MainActivity : Activity() {
         root.addView(tvCurrentMacro)
 
         btnLaunchOverlay = Button(this).apply {
-            text = "Iniciar panel flotante"
-            setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#238636"))
-            textSize = 14f
+            text = "▶  Iniciar panel flotante"
+            setTextColor(UiTheme.TEXT_PRIMARY)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = UiTheme.gradient(this@MainActivity, UiTheme.SUCCESS, UiTheme.SUCCESS_DARK, 14)
+            stateListAnimator = null
+            textSize = 15f
+            setPadding(0, dpToPx(14), 0, dpToPx(14))
             setOnClickListener { launchOverlay() }
         }
         root.addView(btnLaunchOverlay, fullWidthBtn())
@@ -260,25 +308,32 @@ class MainActivity : Activity() {
     private fun permCard(title: String, subtitle: String): LinearLayout {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor("#161B22"))
-            setPadding(16, 12, 12, 12)
+            background = UiTheme.roundedStroke(this@MainActivity,
+                UiTheme.BG_SURFACE, 0xFF252D40.toInt(), 14, 1)
+            setPadding(dpToPx(16), dpToPx(14), dpToPx(12), dpToPx(14))
             setGravity(Gravity.CENTER_VERTICAL)
         }
         val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         texts.addView(TextView(this).apply {
-            text = title; setTextColor(Color.WHITE); textSize = 13f
+            text = title; setTextColor(UiTheme.TEXT_PRIMARY); textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
         })
         texts.addView(TextView(this).apply {
-            text = subtitle; setTextColor(Color.GRAY); textSize = 11f
+            text = subtitle; setTextColor(UiTheme.TEXT_SECONDARY); textSize = 11f
+            setPadding(0, dpToPx(2), 0, 0)
         })
         val tvStatus = TextView(this).apply {
-            text = "…"; textSize = 12f; tag = "status"; gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(dpToPx(60), LinearLayout.LayoutParams.WRAP_CONTENT)
+            text = "…"; textSize = 14f; tag = "status"; gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            layoutParams = LinearLayout.LayoutParams(dpToPx(50), LinearLayout.LayoutParams.WRAP_CONTENT)
         }
         val btn = Button(this).apply {
-            text = "Conceder"; textSize = 10f; tag = "btn"
-            setTextColor(Color.WHITE); setBackgroundColor(Color.parseColor("#1F6FEB"))
-            layoutParams = LinearLayout.LayoutParams(dpToPx(80), dpToPx(34))
+            text = "Conceder"; textSize = 11f; tag = "btn"
+            setTextColor(UiTheme.TEXT_PRIMARY)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = UiTheme.gradient(this@MainActivity, UiTheme.PRIMARY, UiTheme.PRIMARY_DARK, 10)
+            stateListAnimator = null
+            layoutParams = LinearLayout.LayoutParams(dpToPx(86), dpToPx(36))
         }
         card.addView(texts, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         card.addView(tvStatus); card.addView(btn)
@@ -354,9 +409,13 @@ class MainActivity : Activity() {
     private fun buildMacroCard(macro: Macro, isActive: Boolean): LinearLayout {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(
-                if (isActive) Color.parseColor("#1F3A5F") else Color.parseColor("#161B22"))
-            setPadding(16, 12, 12, 12)
+            background = UiTheme.roundedStroke(
+                this@MainActivity,
+                if (isActive) 0xFF1A2740.toInt() else UiTheme.BG_SURFACE,
+                if (isActive) UiTheme.PRIMARY else 0xFF252D40.toInt(),
+                14, if (isActive) 2 else 1
+            )
+            setPadding(dpToPx(16), dpToPx(14), dpToPx(14), dpToPx(14))
         }
 
         val topRow = LinearLayout(this).apply {
@@ -708,19 +767,28 @@ class MainActivity : Activity() {
     // ── UI helpers ────────────────────────────────────────────────────────
 
     private fun sectionLabel(text: String) = TextView(this).apply {
-        this.text = text; textSize = 15f; setTextColor(Color.parseColor("#58A6FF"))
-        setPadding(0, 8, 0, 8)
+        this.text = text; textSize = 16f
+        setTextColor(UiTheme.TEXT_PRIMARY)
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+        letterSpacing = 0.01f
+        setPadding(0, dpToPx(8), 0, dpToPx(10))
     }
     private fun fieldLabel(text: String) = TextView(this).apply {
-        this.text = text; textSize = 12f; setTextColor(Color.GRAY); setPadding(0, 12, 0, 4)
+        this.text = text; textSize = 12f
+        setTextColor(UiTheme.TEXT_SECONDARY)
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+        setPadding(0, dpToPx(12), 0, dpToPx(6))
     }
     private fun infoText(text: String) = TextView(this).apply {
-        this.text = text; textSize = 12f; setTextColor(Color.parseColor("#8B949E")); setPadding(0, 4, 0, 8)
+        this.text = text; textSize = 12f
+        setTextColor(UiTheme.TEXT_SECONDARY)
+        setLineSpacing(dpToPx(2).toFloat(), 1f)
+        setPadding(0, dpToPx(4), 0, dpToPx(8))
     }
     private fun divider() = View(this).apply {
-        setBackgroundColor(Color.parseColor("#30363D"))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
-            setMargins(0, 12, 0, 12)
+        setBackgroundColor(UiTheme.DIVIDER)
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(1)).apply {
+            setMargins(0, dpToPx(14), 0, dpToPx(14))
         }
     }
     private fun fullWidthBtn() = LinearLayout.LayoutParams(
